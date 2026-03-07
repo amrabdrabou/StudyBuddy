@@ -14,8 +14,6 @@ async def lifespan(app: FastAPI):
     await engine.dispose()
     print("Database connection closed")
     
-    
-        
 app = FastAPI(
     lifespan=lifespan,
     title="Study Buddy",
