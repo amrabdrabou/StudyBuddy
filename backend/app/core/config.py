@@ -3,8 +3,8 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 import os
 
 class Settings(BaseSettings):
-    enviroment : str = "dev"
-    database_url : str = ""
+    environment : str = "dev"
+    data_base_url : str = ""
     debug : bool = False
     secret_key : str = ""
     model_config = SettingsConfigDict(
