@@ -7,7 +7,7 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 settings = get_settings()
 
-engine = create_async_engine(settings.data_base_url, echo=settings.debug)
+engine = create_async_engine(settings.database_url, echo=settings.debug)
 
 AsyncSessionLocal = async_sessionmaker(
     engine,
@@ -17,6 +17,7 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
+    __abstract__ = True
     id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
 
 

@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends
 from sqlalchemy import text
 from contextlib import asynccontextmanager
 from app.core.db_setup import engine, Base
+from app.api.v1.routers.auth.auth import router as auth_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -20,6 +21,8 @@ app = FastAPI(
     description="AI-Powered Study Assistant",
     version="1.0.0",
 )
+
+app.include_router(auth_router, prefix="/api/v1")
 
 @app.get("/")
 async def root():

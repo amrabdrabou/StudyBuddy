@@ -7,9 +7,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db_setup import get_db
-from app.core.security import decode_token
+from app.core.security import oauth2_scheme
 from app.models.user import User
-
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
@@ -29,7 +28,6 @@ async def get_current_user(
         sub = payload.get("sub")
         if sub is None:
             raise credentials_exception
-
         user_id = uuid.UUID(sub)
     except (JWTError, ValueError):
         raise credentials_exception
