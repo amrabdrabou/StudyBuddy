@@ -6,7 +6,7 @@ from app.core.config import get_settings
 from app.core.db_setup import get_db
 from app.core.oauth import oauth
 from app.core.security import create_access_token, hash_password, verify_password
-from app.models.user import User
+from backend.app.models.user import User
 from app.schemas.auth import Token
 from app.schemas.user import UserCreate, UserResponse
 from fastapi import APIRouter, Depends, HTTPException, Request, status
