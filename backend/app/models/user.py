@@ -1,94 +1,118 @@
-from datetime import datetime
-from typing import Optional, List
-from xml.dom.minidom import Document
-from pydantic import Tag
-from sqlalchemy import ForeignKey
+from __future__ import annotations
 
-from app.core.db_setup import Base
+import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
+
 from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from backend.app.models.token import Token
-from backend.app.models.study_subject import StudySubject
-from backend.app.models.note import Note
-from backend.app.models.document import Document
-from backend.app.models.tag import Tag
-from backend.app.models.flashcard_deck import FlashcardDeck
+from app.core.db_setup import Base
+from app.models.associations import user_tags
+
+if TYPE_CHECKING:
+    from app.models.token import Token
+    from app.models.tag import Tag
+    from app.models.study_subject import StudySubject
+    from app.models.note import Note
+    from app.models.document import Document
+    from app.models.flashcard_deck import FlashcardDeck
+    from app.models.flashcard import Flashcard
+    from app.models.flashcard_reviews import FlashcardReview
+    from app.models.study_session import StudySession
+    from app.models.study_goal import StudyGoal
+    from app.models.study_group import StudyGroup
+    from app.models.study_group_member import StudyGroupMember
+    from app.models.shared_resource import SharedResource
+
 
 class User(Base):
     __tablename__ = "users"
 
-    email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    email: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
     username: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
     hashed_password: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    # local / google
+    # "local" | "google" | "github"
     auth_provider: Mapped[str] = mapped_column(String, default="local", nullable=False)
-
-    # id القادم من Google
     provider_user_id: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
 
     first_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     last_name: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     profile_picture_url: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     timezone: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    study_goal_minutes_per_day: Mapped[Optional[int]] = mapped_column(
-        Integer, nullable=True
-    )
+    study_goal_minutes_per_day: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     preferred_study_time: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
-
     is_superuser: Mapped[bool] = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
-    
+
     @property
     def full_name(self) -> str:
-        return f"{self.first_name} {self.last_name}"
-    
+        return f"{self.first_name or ''} {self.last_name or ''}".strip()
+
     def __repr__(self) -> str:
-        return f"<User {self.email} ({self.full_name})>"
-    
-    # Relationships
-    #Tokens
-    tokens: Mapped[list["Token"]] = relationship(back_populates="user")
-    refresh_tokens: Mapped[List["RefreshToken"]] = relationship("RefreshToken", back_populates="user")
-    # core
-    study_subjects: Mapped[List["StudySubject"]] = relationship("StudySubject", back_populates="user")
-    tags: Mapped[List["Tag"]] = relationship("Tag", back_populates="user")
-    
-    # flashcards
-    flashcard_decks: Mapped[List["FlashcardDeck"]] = relationship("FlashcardDeck", back_populates="user")
-    flashcard_reviews: Mapped[List["FlashcardReview"]] = relationship("FlashcardReview", back_populates="user")
-    
-    #resources
-    notes: Mapped[List["Note"]] = relationship("Note", back_populates="user")
-    documents: Mapped[List["Document"]] = relationship("Document", back_populates="user")
-    shared_resources: Mapped[List["SharedResource"]] = relationship("SharedResource", back_populates="shared_by_user")
-    
-    # study sessions
-    study_sessions: Mapped[List["StudySession"]] = relationship("StudySession", back_populates="user")
-    study_goals: Mapped[List["StudyGoal"]] = relationship("StudyGoal", back_populates="user")
-    
-    study_group_members: Mapped[List["StudyGroupMember"]] = relationship("StudyGroupMember", back_populates="user")
-    created_study_groups: Mapped[List["StudyGroup"]] = relationship("StudyGroup", back_populates="creator", foreign_keys="StudyGroup.creator_id")
-    
-    # progress tracking
-    daily_progress: Mapped[List["DailyProgress"]] = relationship("DailyProgress", back_populates="user")
-    
-    # AI interactions
-    ai_conversations: Mapped[List["AiConversation"]] = relationship("AiConversation", back_populates="user")
-    ai_generated_content: Mapped[List["AiGeneratedContent"]] = relationship("AiGeneratedContent", back_populates="user")
-    ai_message_feedback: Mapped[List["AiMessageFeedback"]] = relationship("AiMessageFeedback", back_populates="user")
+        return f"<User {self.email}>"
+
+    # ── Auth ──────────────────────────────────────────────────────────────────
+    tokens: Mapped[List["Token"]] = relationship(
+        "Token", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    )
+
+    # ── Core content ──────────────────────────────────────────────────────────
+    study_subjects: Mapped[List["StudySubject"]] = relationship(
+        "StudySubject", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    tags: Mapped[List["Tag"]] = relationship(
+        "Tag", secondary=user_tags, back_populates="users", lazy="noload"
+    )
+
+    # ── Flashcards ────────────────────────────────────────────────────────────
+    flashcard_decks: Mapped[List["FlashcardDeck"]] = relationship(
+        "FlashcardDeck", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    flashcards: Mapped[List["Flashcard"]] = relationship(
+        "Flashcard", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    flashcard_reviews: Mapped[List["FlashcardReview"]] = relationship(
+        "FlashcardReview", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+
+    # ── Resources ─────────────────────────────────────────────────────────────
+    notes: Mapped[List["Note"]] = relationship(
+        "Note", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    documents: Mapped[List["Document"]] = relationship(
+        "Document", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    shared_resources: Mapped[List["SharedResource"]] = relationship(
+        "SharedResource", back_populates="shared_by_user", cascade="all, delete-orphan", lazy="noload"
+    )
+
+    # ── Study planning ────────────────────────────────────────────────────────
+    study_sessions: Mapped[List["StudySession"]] = relationship(
+        "StudySession", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    study_goals: Mapped[List["StudyGoal"]] = relationship(
+        "StudyGoal", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+
+    # ── Groups ────────────────────────────────────────────────────────────────
+    study_group_members: Mapped[List["StudyGroupMember"]] = relationship(
+        "StudyGroupMember", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    created_study_groups: Mapped[List["StudyGroup"]] = relationship(
+        "StudyGroup",
+        back_populates="creator",
+        foreign_keys="[StudyGroup.creator_id]",
+        lazy="noload",
+    )

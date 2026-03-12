@@ -1,37 +1,58 @@
-from datetime import datetime
-from sqlalchemy import ForeignKey, Boolean, DateTime, Integer, String, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
-from typing import Optional, List
-import uuid
+from __future__ import annotations
 
-from backend.app.core.db_setup import Base
-from backend.app.models.user import User
-from backend.app.models.note import Note
-from backend.app.models.document import Document
+import uuid
+from datetime import datetime
+from typing import TYPE_CHECKING, List, Optional
+
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.db_setup import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
+    from app.models.note import Note
+    from app.models.document import Document
+    from app.models.flashcard_deck import FlashcardDeck
+    from app.models.study_session import StudySession
+    from app.models.study_goal import StudyGoal
+
 
 class StudySubject(Base):
     __tablename__ = "study_subjects"
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id"), nullable=False)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
     name: Mapped[str] = mapped_column(String, nullable=False)
     description: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     color_hex: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     icon: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        nullable=False,
+        DateTime(timezone=True), server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True),
-        server_default=func.now(),
-        onupdate=func.now(),
-        nullable=False,
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    # Relationships one-to-many with User
-    user: Mapped["User"] = relationship("User", back_populates="study_subjects")
-    # Relationships one-to-many with Note
-    notes: Mapped[List["Note"]] = relationship("Note", back_populates="study_subject")
-    # Relationships one-to-many with Document
-    documents: Mapped[List["Document"]] = relationship("Document", back_populates="study_subject")  
+    # many-to-one → User
+    user: Mapped["User"] = relationship("User", back_populates="study_subjects", lazy="selectin")
+
+    # one-to-many children
+    notes: Mapped[List["Note"]] = relationship(
+        "Note", back_populates="study_subject", lazy="noload"
+    )
+    documents: Mapped[List["Document"]] = relationship(
+        "Document", back_populates="study_subject", lazy="noload"
+    )
+    flashcard_decks: Mapped[List["FlashcardDeck"]] = relationship(
+        "FlashcardDeck", back_populates="study_subject", lazy="noload"
+    )
+    study_sessions: Mapped[List["StudySession"]] = relationship(
+        "StudySession", back_populates="study_subject", lazy="noload"
+    )
+    study_goals: Mapped[List["StudyGoal"]] = relationship(
+        "StudyGoal", back_populates="study_subject", lazy="noload"
+    )
