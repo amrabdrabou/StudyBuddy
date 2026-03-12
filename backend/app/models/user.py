@@ -11,6 +11,9 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from backend.app.models.token import Token
 from backend.app.models.study_subject import StudySubject
 from backend.app.models.note import Note
+from backend.app.models.document import Document
+from backend.app.models.tag import Tag
+from backend.app.models.flashcard_deck import FlashcardDeck
 
 class User(Base):
     __tablename__ = "users"

@@ -7,6 +7,7 @@ import uuid
 from backend.app.core.db_setup import Base
 from backend.app.models.user import User
 from backend.app.models.note import Note
+from backend.app.models.document import Document
 
 class StudySubject(Base):
     __tablename__ = "study_subjects"
@@ -32,3 +33,5 @@ class StudySubject(Base):
     user: Mapped["User"] = relationship("User", back_populates="study_subjects")
     # Relationships one-to-many with Note
     notes: Mapped[List["Note"]] = relationship("Note", back_populates="study_subject")
+    # Relationships one-to-many with Document
+    documents: Mapped[List["Document"]] = relationship("Document", back_populates="study_subject")  
