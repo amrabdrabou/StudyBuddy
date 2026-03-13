@@ -1,48 +1,41 @@
 import { useState, FormEvent } from "react";
 import { register } from "../api/auth";
+import homeBackground from "../assets/home.png";
 
 interface Props {
   /** Called after a successful registration so the parent can switch to login */
   onSuccess: () => void;
   /** Switch back to the login page */
   onGoToLogin: () => void;
+  onGoToHome: () => void;
 }
 
-export default function RegisterPage({ onSuccess, onGoToLogin }: Props) {
-  // Form fields
+export default function RegisterPage({ onSuccess, onGoToLogin, onGoToHome }: Props) {
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
-  // UI state
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-
-    // Simple client-side check before hitting the server
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-
     setLoading(true);
-
     try {
       await register({
         email,
         password,
-        username: username || undefined,   // send undefined if empty → backend auto-generates
+        username: username || undefined,
         first_name: firstName || undefined,
         last_name: lastName || undefined,
       });
-
-      // Registration worked — redirect to login so they can sign in
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Registration failed");
@@ -51,149 +44,173 @@ export default function RegisterPage({ onSuccess, onGoToLogin }: Props) {
     }
   }
 
+  const inputClass =
+    "w-full rounded-xl bg-white/10 border border-white/20 px-4 py-3 text-white " +
+    "placeholder:text-gray-600 outline-none text-sm " +
+    "focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 transition";
+
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 px-4 py-10">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-slate-950 text-gray-950 font-sans antialiased flex flex-col">
 
-        {/* Card */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-8">
+      {/* Sticky Nav */}
+      <nav className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur border-b border-white/10">
+        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
+          <button onClick={onGoToHome} className="text-white font-extrabold text-xl tracking-tighter cursor-pointer select-none">Study<span className="text-indigo-400">Buddy</span></button>
+          <button
+            onClick={onGoToLogin}
+            className="text-gray-300 hover:text-white text-sm font-medium transition-colors"
+          >
+            Have an account?{" "}
+            <span className="text-indigo-400 font-semibold">Sign in</span>
+          </button>
+        </div>
+      </nav>
 
-          {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-2xl font-bold text-slate-800">Create an account</h1>
-            <p className="text-slate-500 text-sm mt-1">Start studying smarter</p>
+      {/* Background */}
+      <div className="absolute inset-0 z-0 top-16">
+        <img src={homeBackground} alt="" className="w-full h-full object-cover opacity-20" />
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/80 to-slate-950/40" />
+      </div>
+
+      {/* Main */}
+      <div className="flex-1 flex items-center justify-center px-4 py-16 relative z-10">
+        <div className="w-full max-w-md flex flex-col gap-8">
+
+          {/* Heading */}
+          <div className="flex flex-col gap-3">
+            <div className="inline-flex items-center gap-2 self-start bg-indigo-500/10 px-4 py-1.5 rounded-full border border-indigo-400/20">
+              <span className="relative flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-indigo-500" />
+              </span>
+              <span className="text-sm font-semibold text-indigo-300">Free forever</span>
+            </div>
+            <h1 className="text-5xl sm:text-6xl font-extrabold tracking-tighter text-white leading-[0.9]">
+              Create your<br />
+              <span className="text-indigo-400">study space</span>
+            </h1>
+            <p className="text-lg text-gray-400 leading-relaxed">
+              Start with a subject — add notes, flashcard decks, and study goals in minutes.
+            </p>
           </div>
 
           {/* Error banner */}
           {error && (
-            <div className="mb-4 rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+            <div className="rounded-2xl bg-red-500/10 border border-red-400/20 px-5 py-4 text-sm text-red-300">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Card */}
+          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 shadow-2xl backdrop-blur-sm">
+            <form onSubmit={handleSubmit} className="flex flex-col gap-5">
 
-            {/* First & last name side by side */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  First name
+              {/* First & last name */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-gray-300">First name</label>
+                  <input
+                    type="text"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    placeholder="Jane"
+                    className={inputClass}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-sm font-medium text-gray-300">Last name</label>
+                  <input
+                    type="text"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    placeholder="Doe"
+                    className={inputClass}
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-300">
+                  Email <span className="text-indigo-400">*</span>
+                </label>
+                <input
+                  type="email"
+                  required
+                  autoFocus
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className={inputClass}
+                />
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-300">
+                  Username
+                  <span className="ml-1.5 text-xs text-gray-600">(optional)</span>
                 </label>
                 <input
                   type="text"
-                  value={firstName}
-                  onChange={(e) => setFirstName(e.target.value)}
-                  placeholder="Jane"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
-                             placeholder:text-slate-400 outline-none
-                             focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100
-                             transition"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="janedoe"
+                  className={inputClass}
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">
-                  Last name
+
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-300">
+                  Password <span className="text-indigo-400">*</span>
                 </label>
                 <input
-                  type="text"
-                  value={lastName}
-                  onChange={(e) => setLastName(e.target.value)}
-                  placeholder="Doe"
-                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
-                             placeholder:text-slate-400 outline-none
-                             focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100
-                             transition"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={inputClass}
                 />
               </div>
-            </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Email <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="email"
-                required
-                autoFocus
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
-                           placeholder:text-slate-400 outline-none
-                           focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100
-                           transition"
-              />
-            </div>
+              <div className="flex flex-col gap-1.5">
+                <label className="text-sm font-medium text-gray-300">
+                  Confirm password <span className="text-indigo-400">*</span>
+                </label>
+                <input
+                  type="password"
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className={inputClass}
+                />
+              </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Username
-                <span className="ml-1 text-xs text-slate-400">(optional)</span>
-              </label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="janedoe"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
-                           placeholder:text-slate-400 outline-none
-                           focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100
-                           transition"
-              />
-            </div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-4 rounded-2xl
+                           font-bold text-base shadow-lg transition-colors mt-1
+                           disabled:opacity-50 disabled:cursor-not-allowed
+                           flex items-center justify-center gap-2"
+              >
+                {loading ? "Creating account…" : (
+                  <>
+                    Create Account
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
+                  </>
+                )}
+              </button>
+            </form>
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Password <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
-                           placeholder:text-slate-400 outline-none
-                           focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100
-                           transition"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">
-                Confirm password <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-800
-                           placeholder:text-slate-400 outline-none
-                           focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100
-                           transition"
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white
-                         hover:bg-indigo-700 active:bg-indigo-800
-                         disabled:opacity-60 disabled:cursor-not-allowed
-                         transition"
-            >
-              {loading ? "Creating account…" : "Create account"}
-            </button>
-          </form>
-
-          {/* Success note shown after submit */}
-          <p className="mt-6 text-center text-sm text-slate-500">
+          <p className="text-center text-sm text-gray-500">
             Already have an account?{" "}
             <button
               onClick={onGoToLogin}
-              className="font-medium text-indigo-600 hover:underline"
+              className="text-indigo-400 font-semibold hover:text-indigo-300 transition-colors"
             >
               Sign in
             </button>

@@ -1,54 +1,75 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
+import HomePage from "./pages/HomePage";
 import { getToken, removeToken } from "./api/auth";
 
-// The three "pages" our simple app can show
-type Page = "login" | "register" | "home";
+type Page = "home" | "login" | "register";
+
+// Map URL pathnames to page names and back
+const pathToPage = (path: string): Page => {
+  if (path === "/login") return "login";
+  if (path === "/register") return "register";
+  return "home";
+};
+
+const pageToPath: Record<Page, string> = {
+  home: "/",
+  login: "/login",
+  register: "/register",
+};
 
 export default function App() {
-  // If a token is already saved in localStorage, skip straight to home
-  const [page, setPage] = useState<Page>(getToken() ? "home" : "login");
+  const [page, setPage] = useState<Page>(() => pathToPage(window.location.pathname));
 
-  // ── Logged-in placeholder ─────────────────────────────────────────────────
-  if (page === "home") {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl font-bold text-slate-800">
-            Welcome to Study Buddy 🎓
-          </h1>
-          <p className="text-slate-500">You are logged in.</p>
-          <button
-            onClick={() => {
-              removeToken();        // clear token from localStorage
-              setPage("login");     // go back to login
-            }}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm
-                       text-slate-600 hover:bg-slate-100 transition"
-          >
-            Sign out
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Push a new history entry and update state
+  const navigate = (next: Page) => {
+    window.history.pushState({ page: next }, "", pageToPath[next]);
+    setPage(next);
+  };
 
-  // ── Auth pages ────────────────────────────────────────────────────────────
-  if (page === "register") {
+  // Sync state when the user hits the browser back/forward buttons
+  useEffect(() => {
+    const onPop = (e: PopStateEvent) => {
+      setPage(e.state?.page ?? pathToPage(window.location.pathname));
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  const isLoggedIn = !!getToken();
+
+  const handleSignOut = () => {
+    removeToken();
+    navigate("home");
+  };
+
+  if (page === "login") {
     return (
-      <RegisterPage
-        onSuccess={() => setPage("login")}       // after register → go to login
-        onGoToLogin={() => setPage("login")}
+      <LoginPage
+        onSuccess={() => navigate("home")}
+        onGoToRegister={() => navigate("register")}
+        onGoToHome={() => navigate("home")}
       />
     );
   }
 
-  // Default: login
+  if (page === "register") {
+    return (
+      <RegisterPage
+        onSuccess={() => navigate("login")}
+        onGoToLogin={() => navigate("login")}
+        onGoToHome={() => navigate("home")}
+      />
+    );
+  }
+
   return (
-    <LoginPage
-      onSuccess={() => setPage("home")}          // after login → go to home
-      onGoToRegister={() => setPage("register")}
+    <HomePage
+      isLoggedIn={isLoggedIn}
+      onGoToLogin={() => navigate("login")}
+      onGoToRegister={() => navigate("register")}
+      onSignOut={handleSignOut}
     />
   );
 }
