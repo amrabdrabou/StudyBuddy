@@ -1,17 +1,19 @@
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+
+# ── FlashcardDeck ─────────────────────────────────────────────────────────────
 
 class FlashcardDeckBase(BaseModel):
     title: str
     description: Optional[str] = None
     color_hex: Optional[str] = None
     icon: Optional[str] = None
-    study_subject_id: Optional[uuid.UUID] = None
     is_public: bool = False
+    study_subject_id: Optional[uuid.UUID] = None  # optional grouping
 
 
 class FlashcardDeckCreate(FlashcardDeckBase):
@@ -75,7 +77,6 @@ class FlashcardResponse(FlashcardBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
-    user_id: uuid.UUID
     deck_id: uuid.UUID
     interval_days: Optional[int] = None
     repetitions: Optional[int] = None
@@ -93,7 +94,7 @@ class FlashcardResponse(FlashcardBase):
 # ── FlashcardReview ───────────────────────────────────────────────────────────
 
 class FlashcardReviewBase(BaseModel):
-    quality_rating: int  # SM-2: 0-5
+    quality_rating: int       # SM-2 scale: 0-5
     next_review_date: datetime
 
 
@@ -114,7 +115,6 @@ class FlashcardReviewResponse(FlashcardReviewBase):
 
     flashcard_id: uuid.UUID
     study_session_id: uuid.UUID
-    user_id: uuid.UUID
     total_reviews: int
     correct_reviews: int
     reviewed_at: datetime

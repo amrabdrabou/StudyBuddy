@@ -8,7 +8,6 @@ from sqlalchemy import Boolean, DateTime, Integer, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_setup import Base
-from app.models.associations import user_tags
 
 if TYPE_CHECKING:
     from app.models.token import Token
@@ -17,8 +16,6 @@ if TYPE_CHECKING:
     from app.models.note import Note
     from app.models.document import Document
     from app.models.flashcard_deck import FlashcardDeck
-    from app.models.flashcard import Flashcard
-    from app.models.flashcard_reviews import FlashcardReview
     from app.models.study_session import StudySession
     from app.models.study_goal import StudyGoal
     from app.models.study_group import StudyGroup
@@ -33,7 +30,6 @@ class User(Base):
     username: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
     hashed_password: Mapped[Optional[str]] = mapped_column(String, nullable=True)
 
-    # "local" | "google" | "github"
     auth_provider: Mapped[str] = mapped_column(String, default="local", nullable=False)
     provider_user_id: Mapped[Optional[str]] = mapped_column(String, unique=True, nullable=True)
 
@@ -68,37 +64,22 @@ class User(Base):
         "Token", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
 
-    # ── Core content ──────────────────────────────────────────────────────────
+    # ── Direct ownership (user_id on every table) ─────────────────────────────
+    tags: Mapped[List["Tag"]] = relationship(
+        "Tag", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
     study_subjects: Mapped[List["StudySubject"]] = relationship(
         "StudySubject", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
-    tags: Mapped[List["Tag"]] = relationship(
-        "Tag", secondary=user_tags, back_populates="users", lazy="noload"
-    )
-
-    # ── Flashcards ────────────────────────────────────────────────────────────
-    flashcard_decks: Mapped[List["FlashcardDeck"]] = relationship(
-        "FlashcardDeck", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    flashcards: Mapped[List["Flashcard"]] = relationship(
-        "Flashcard", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    flashcard_reviews: Mapped[List["FlashcardReview"]] = relationship(
-        "FlashcardReview", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-
-    # ── Resources ─────────────────────────────────────────────────────────────
     notes: Mapped[List["Note"]] = relationship(
         "Note", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
     documents: Mapped[List["Document"]] = relationship(
         "Document", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
-    shared_resources: Mapped[List["SharedResource"]] = relationship(
-        "SharedResource", back_populates="shared_by_user", cascade="all, delete-orphan", lazy="noload"
+    flashcard_decks: Mapped[List["FlashcardDeck"]] = relationship(
+        "FlashcardDeck", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
-
-    # ── Study planning ────────────────────────────────────────────────────────
     study_sessions: Mapped[List["StudySession"]] = relationship(
         "StudySession", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
@@ -107,12 +88,15 @@ class User(Base):
     )
 
     # ── Groups ────────────────────────────────────────────────────────────────
-    study_group_members: Mapped[List["StudyGroupMember"]] = relationship(
-        "StudyGroupMember", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
     created_study_groups: Mapped[List["StudyGroup"]] = relationship(
         "StudyGroup",
         back_populates="creator",
         foreign_keys="[StudyGroup.creator_id]",
         lazy="noload",
+    )
+    study_group_members: Mapped[List["StudyGroupMember"]] = relationship(
+        "StudyGroupMember", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    shared_resources: Mapped[List["SharedResource"]] = relationship(
+        "SharedResource", back_populates="shared_by_user", cascade="all, delete-orphan", lazy="noload"
     )

@@ -1,4 +1,4 @@
-from app.schema.auth import JWTToken
+from app.schema.auth import TokenOut
 from app.schema.user import UserBase, UserCreate, UserUpdate, UserResponse
 from app.schema.token import TokenBase, TokenCreate, TokenUpdate, TokenResponse
 from app.schema.tag import TagBase, TagCreate, TagUpdate, TagResponse
@@ -42,6 +42,62 @@ from app.schema.study_goal import (
     StudyGoalUpdate,
     StudyGoalResponse,
 )
+from app.schema.session_participant import (
+    SessionParticipantBase,
+    SessionParticipantCreate,
+    SessionParticipantUpdate,
+    SessionParticipantResponse,
+)
+from app.schema.session_document import (
+    SessionDocumentCreate,
+    SessionDocumentResponse,
+)
+from app.schema.document_topic import (
+    DocumentTopicBase,
+    DocumentTopicCreate,
+    DocumentTopicUpdate,
+    DocumentTopicResponse,
+)
+from app.schema.session_topic import (
+    SessionTopicBase,
+    SessionTopicCreate,
+    SessionTopicUpdate,
+    SessionTopicResponse,
+)
+from app.schema.micro_goal import (
+    MicroGoalBase,
+    MicroGoalCreate,
+    MicroGoalUpdate,
+    MicroGoalResponse,
+)
+from app.schema.session_ai_event import (
+    SessionAiEventBase,
+    SessionAiEventCreate,
+    SessionAiEventUpdate,
+    SessionAiEventResponse,
+)
+from app.schema.quiz_question import (
+    QuizQuestionBase,
+    QuizQuestionCreate,
+    QuizQuestionUpdate,
+    QuizQuestionResponse,
+)
+from app.schema.quiz_attempt import (
+    QuizAttemptCreate,
+    QuizAttemptResponse,
+)
+from app.schema.session_reflection import (
+    SessionReflectionBase,
+    SessionReflectionCreate,
+    SessionReflectionUpdate,
+    SessionReflectionResponse,
+)
+from app.schema.session_recommendation import (
+    SessionRecommendationBase,
+    SessionRecommendationCreate,
+    SessionRecommendationUpdate,
+    SessionRecommendationResponse,
+)
 from app.schema.study_group import (
     StudyGroupBase,
     StudyGroupCreate,
@@ -80,4 +136,24 @@ __all__ = [
     "StudyGroupMemberResponse",
     # SharedResource
     "SharedResourceBase", "SharedResourceCreate", "SharedResourceUpdate", "SharedResourceResponse",
+    # SessionParticipant
+    "SessionParticipantBase", "SessionParticipantCreate", "SessionParticipantUpdate", "SessionParticipantResponse",
+    # SessionDocument
+    "SessionDocumentCreate", "SessionDocumentResponse",
+    # DocumentTopic
+    "DocumentTopicBase", "DocumentTopicCreate", "DocumentTopicUpdate", "DocumentTopicResponse",
+    # SessionTopic
+    "SessionTopicBase", "SessionTopicCreate", "SessionTopicUpdate", "SessionTopicResponse",
+    # MicroGoal
+    "MicroGoalBase", "MicroGoalCreate", "MicroGoalUpdate", "MicroGoalResponse",
+    # SessionAiEvent
+    "SessionAiEventBase", "SessionAiEventCreate", "SessionAiEventUpdate", "SessionAiEventResponse",
+    # QuizQuestion
+    "QuizQuestionBase", "QuizQuestionCreate", "QuizQuestionUpdate", "QuizQuestionResponse",
+    # QuizAttempt
+    "QuizAttemptCreate", "QuizAttemptResponse",
+    # SessionReflection
+    "SessionReflectionBase", "SessionReflectionCreate", "SessionReflectionUpdate", "SessionReflectionResponse",
+    # SessionRecommendation
+    "SessionRecommendationBase", "SessionRecommendationCreate", "SessionRecommendationUpdate", "SessionRecommendationResponse",
 ]

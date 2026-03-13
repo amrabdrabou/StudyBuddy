@@ -21,7 +21,7 @@ class StudyGroupMember(Base):
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
     )
     study_group_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("study_group.id", ondelete="CASCADE"), primary_key=True
+        ForeignKey("study_groups.id", ondelete="CASCADE"), primary_key=True
     )
     role: Mapped[str] = mapped_column(String, nullable=False, default="member")  # "owner" | "admin" | "member"
     joined_at: Mapped[datetime] = mapped_column(

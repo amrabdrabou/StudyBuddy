@@ -13,14 +13,17 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.study_subject import StudySubject
     from app.models.document_tag import DocumentTag
+    from app.models.document_topic import DocumentTopic
 
 
 class Document(Base):
     __tablename__ = "documents"
 
+    # Direct owner — fast auth & filtering without joins
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # Optional subject grouping
     study_subject_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("study_subjects.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -33,7 +36,7 @@ class Document(Base):
     extracted_text: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     page_content: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     summary: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    topics: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    topics_raw: Mapped[Optional[str]] = mapped_column("topics", String, nullable=True)
     is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
 
     uploaded_at: Mapped[datetime] = mapped_column(
@@ -43,15 +46,13 @@ class Document(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    # many-to-one → User
     user: Mapped["User"] = relationship("User", back_populates="documents", lazy="selectin")
-
-    # many-to-one → StudySubject (optional)
     study_subject: Mapped[Optional["StudySubject"]] = relationship(
         "StudySubject", back_populates="documents", lazy="selectin"
     )
-
-    # one-to-many → DocumentTag
     document_tags: Mapped[List["DocumentTag"]] = relationship(
         "DocumentTag", back_populates="document", cascade="all, delete-orphan", lazy="selectin"
+    )
+    detected_topics: Mapped[List["DocumentTopic"]] = relationship(
+        "DocumentTopic", back_populates="document", cascade="all, delete-orphan", lazy="noload"
     )

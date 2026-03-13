@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
 
 class StudyGroup(Base):
-    __tablename__ = "study_group"
+    __tablename__ = "study_groups"
 
     # The user who created / owns the group
     creator_id: Mapped[uuid.UUID] = mapped_column(

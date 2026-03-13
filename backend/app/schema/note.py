@@ -13,14 +13,13 @@ class NoteTagResponse(BaseModel):
     note_id: uuid.UUID
     tag_id: uuid.UUID
     created_at: datetime
-
     tag: TagResponse
 
 
 class NoteBase(BaseModel):
     title: str
     content: Optional[str] = None
-    study_subject_id: Optional[uuid.UUID] = None
+    study_subject_id: Optional[uuid.UUID] = None  # optional grouping
 
 
 class NoteCreate(NoteBase):
@@ -43,5 +42,4 @@ class NoteResponse(NoteBase):
     is_archived: bool
     created_at: datetime
     updated_at: datetime
-
     note_tags: List[NoteTagResponse] = []

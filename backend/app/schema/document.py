@@ -13,7 +13,6 @@ class DocumentTagResponse(BaseModel):
     document_id: uuid.UUID
     tag_id: uuid.UUID
     created_at: datetime
-
     tag: TagResponse
 
 
@@ -23,7 +22,7 @@ class DocumentBase(BaseModel):
     file_path: str
     file_type: str
     file_size_bytes: int
-    study_subject_id: Optional[uuid.UUID] = None
+    study_subject_id: Optional[uuid.UUID] = None  # optional grouping
 
 
 class DocumentCreate(DocumentBase):
@@ -48,11 +47,9 @@ class DocumentResponse(DocumentBase):
     id: uuid.UUID
     user_id: uuid.UUID
     processing_status: str
-    extracted_text: Optional[str] = None
     summary: Optional[str] = None
     topics: Optional[str] = None
     is_archived: bool
     uploaded_at: datetime
     last_accessed_at: datetime
-
     document_tags: List[DocumentTagResponse] = []

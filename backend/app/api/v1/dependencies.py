@@ -1,44 +1,39 @@
-import uuid
+from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from jose import JWTError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db_setup import get_db
 from app.core.security import oauth2_scheme
-from backend.app.models.user import User
+from app.models.token import Token
+from app.models.user import User
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+_credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Invalid or expired token",
+    headers={"WWW-Authenticate": "Bearer"},
+)
 
 
 async def get_current_user(
     token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    result = await db.execute(select(Token).where(Token.token == token))
+    db_token = result.scalar_one_or_none()
 
-    try:
-        payload = decode_token(token)
-        sub = payload.get("sub")
-        if sub is None:
-            raise credentials_exception
-        user_id = uuid.UUID(sub)
-    except (JWTError, ValueError):
-        raise credentials_exception
+    if db_token is None:
+        raise _credentials_exception
 
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
+    # expires_at is timezone-aware (stored with timezone=True)
+    if db_token.expires_at < datetime.now(timezone.utc):
+        await db.delete(db_token)
+        await db.commit()
+        raise _credentials_exception
 
-    if user is None:
-        raise credentials_exception
-
-    return user
+    # Token.user is lazy="selectin" so it's already loaded
+    return db_token.user
 
 
 async def get_current_active_user(

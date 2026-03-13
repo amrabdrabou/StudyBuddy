@@ -18,9 +18,11 @@ if TYPE_CHECKING:
 class Note(Base):
     __tablename__ = "notes"
 
+    # Direct owner — fast auth & filtering without joins
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
+    # Optional subject grouping
     study_subject_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         ForeignKey("study_subjects.id", ondelete="SET NULL"), nullable=True, index=True
     )
@@ -35,15 +37,10 @@ class Note(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    # many-to-one → User
     user: Mapped["User"] = relationship("User", back_populates="notes", lazy="selectin")
-
-    # many-to-one → StudySubject (optional)
     study_subject: Mapped[Optional["StudySubject"]] = relationship(
         "StudySubject", back_populates="notes", lazy="selectin"
     )
-
-    # one-to-many → NoteTag (association rows with metadata)
     note_tags: Mapped[List["NoteTag"]] = relationship(
         "NoteTag", back_populates="note", cascade="all, delete-orphan", lazy="selectin"
     )

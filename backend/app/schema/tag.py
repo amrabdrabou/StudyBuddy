@@ -27,5 +27,6 @@ class TagResponse(TagBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    user_id: uuid.UUID
     created_at: datetime
     updated_at: datetime

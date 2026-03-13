@@ -21,7 +21,7 @@ class SharedResource(Base):
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
     study_group_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("study_group.id", ondelete="CASCADE"), nullable=False, index=True
+        ForeignKey("study_groups.id", ondelete="CASCADE"), nullable=False, index=True
     )
     resource_type: Mapped[str] = mapped_column(String, nullable=False)  # "document" | "note" | "deck"
     resource_id: Mapped[uuid.UUID] = mapped_column(String, nullable=False)
