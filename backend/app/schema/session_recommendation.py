@@ -1,3 +1,4 @@
+"""Pydantic schemas for AI-generated recommendations produced after a session."""
 import uuid
 from datetime import datetime
 from typing import Any, List, Optional

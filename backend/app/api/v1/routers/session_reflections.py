@@ -1,3 +1,4 @@
+"""API router for submitting and reading post-session reflections."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

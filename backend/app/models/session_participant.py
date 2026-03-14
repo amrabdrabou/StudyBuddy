@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model linking users as participants in a collaborative study session."""
 from __future__ import annotations
 
 import uuid
@@ -15,6 +16,10 @@ if TYPE_CHECKING:
 
 
 class SessionParticipant(Base):
+    """
+    Association table for multiplayer study sessions.
+    Tracks which users are in the session and their permissions (roles).
+    """
     __tablename__ = "session_participants"
 
     session_id: Mapped[uuid.UUID] = mapped_column(
@@ -23,9 +28,11 @@ class SessionParticipant(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # owner | participant | viewer
+    
+    # Permission level: owner | participant | viewer
     role: Mapped[str] = mapped_column(String, nullable=False, default="participant")
-    # pending | accepted | declined
+    
+    # Lifecycle: pending | accepted | declined
     invite_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
 
     invited_at: Mapped[datetime] = mapped_column(

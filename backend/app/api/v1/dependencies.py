@@ -1,3 +1,4 @@
+"""FastAPI dependency functions for authentication and database session injection."""
 from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, status

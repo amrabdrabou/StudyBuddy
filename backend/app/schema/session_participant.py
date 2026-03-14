@@ -1,3 +1,4 @@
+"""Pydantic schemas for adding and reading session participants."""
 import uuid
 from datetime import datetime
 from typing import Optional

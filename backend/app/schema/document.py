@@ -1,3 +1,4 @@
+"""Pydantic schemas for uploading and reading study documents."""
 import uuid
 from datetime import datetime
 from typing import List, Optional

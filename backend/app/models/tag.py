@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model for user-defined tags used to label content."""
 from __future__ import annotations
 
 import uuid
@@ -16,6 +17,10 @@ if TYPE_CHECKING:
 
 
 class Tag(Base):
+    """
+    User-defined labels that can be attached to various resources (like Notes and Documents).
+    Provides flexible, cross-subject organization of study materials.
+    """
     __tablename__ = "tags"
 
     # Tags are owned by a single user (1:M, not M:M)

@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model for the many-to-many association between documents and tags."""
 from __future__ import annotations
 
 import uuid
@@ -15,6 +16,10 @@ if TYPE_CHECKING:
 
 
 class DocumentTag(Base):
+    """
+    Association table linking Documents to Tags for many-to-many relationships.
+    Allows organizing unstructured text or PDFs by user-defined categories.
+    """
     __tablename__ = "document_tags"
 
     document_id: Mapped[uuid.UUID] = mapped_column(

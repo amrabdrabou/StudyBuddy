@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model logging AI-generated events that occur during a session."""
 from __future__ import annotations
 
 import uuid
@@ -17,18 +18,26 @@ if TYPE_CHECKING:
 
 
 class SessionAiEvent(Base):
+    """
+    Log of interactions or spontaneous actions taken by the AI tutor during a session.
+    Could track things like the AI generating a quiz, prompting a reflection, or updating a study plan.
+    """
     __tablename__ = "session_ai_events"
 
     session_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("study_sessions.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    # overview | checkpoint | quiz_generation | summary | reflection | next_plan
+    # The category of AI action: overview | checkpoint | quiz_generation | summary | reflection | next_plan
     event_type: Mapped[str] = mapped_column(String, nullable=False)
+    
+    # The actual text content/prompt delivered by the AI
     content: Mapped[str] = mapped_column(String, nullable=False)
 
     triggered_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
+    
+    # Tracks if the user has seen or responded to this specific AI prompt
     user_acknowledged: Mapped[bool] = mapped_column(Boolean, default=False)
     acknowledged_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
 

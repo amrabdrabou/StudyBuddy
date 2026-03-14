@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model linking documents to a study session."""
 from __future__ import annotations
 
 import uuid
@@ -15,6 +16,10 @@ if TYPE_CHECKING:
 
 
 class SessionDocument(Base):
+    """
+    Many-to-many association representing which documents are actively open or being used
+    as context by the AI during a specific study session.
+    """
     __tablename__ = "session_documents"
 
     session_id: Mapped[uuid.UUID] = mapped_column(

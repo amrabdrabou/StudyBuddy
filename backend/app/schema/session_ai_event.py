@@ -1,3 +1,4 @@
+"""Pydantic schemas for AI events logged during a study session."""
 import uuid
 from datetime import datetime
 from typing import Any, Dict, Optional

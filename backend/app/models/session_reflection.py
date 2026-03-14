@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model for a user's post-session reflection notes."""
 from __future__ import annotations
 
 import uuid
@@ -15,6 +16,10 @@ if TYPE_CHECKING:
 
 
 class SessionReflection(Base):
+    """
+    Stores an individual answer given by the user to an AI-prompted reflection question
+    at the end of a study session. Used to gauge subjective learning performance.
+    """
     __tablename__ = "session_reflections"
 
     session_id: Mapped[uuid.UUID] = mapped_column(

@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model for the many-to-many association between notes and tags."""
 from __future__ import annotations
 
 import uuid

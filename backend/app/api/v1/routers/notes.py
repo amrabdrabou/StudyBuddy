@@ -1,3 +1,4 @@
+"""API router for CRUD operations on user study notes."""
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status

@@ -1,3 +1,4 @@
+"""Pydantic schemas for creating and reading study groups and their members."""
 import uuid
 from datetime import datetime
 from typing import List, Optional

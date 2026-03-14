@@ -1,3 +1,4 @@
+"""API router for recording and listing topics covered during a study session."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

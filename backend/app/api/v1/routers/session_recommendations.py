@@ -1,3 +1,4 @@
+"""API router for fetching AI-generated recommendations tied to a session."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

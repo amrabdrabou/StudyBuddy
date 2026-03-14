@@ -1,3 +1,4 @@
+"""API router for reading and managing AI-extracted topics for a document."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

@@ -1,3 +1,4 @@
+"""API router handling user registration, login, token refresh, and OAuth2 flows."""
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import or_, select

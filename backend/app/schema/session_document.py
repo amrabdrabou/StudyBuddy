@@ -1,3 +1,4 @@
+"""Pydantic schemas for linking documents to a study session."""
 import uuid
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict

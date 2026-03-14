@@ -1,3 +1,4 @@
+"""API router for attaching and removing documents from a study session."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

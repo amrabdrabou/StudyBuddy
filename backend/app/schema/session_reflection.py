@@ -1,3 +1,4 @@
+"""Pydantic schemas for post-session reflections written by the user."""
 import uuid
 from datetime import datetime
 from typing import Optional

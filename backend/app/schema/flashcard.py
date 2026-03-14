@@ -1,3 +1,4 @@
+"""Pydantic schemas for flashcard decks and individual flashcard CRUD."""
 import uuid
 from datetime import datetime
 from typing import Optional

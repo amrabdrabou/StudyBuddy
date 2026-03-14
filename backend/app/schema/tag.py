@@ -1,3 +1,4 @@
+"""Pydantic schemas for creating, reading, and updating tags."""
 import uuid
 from datetime import datetime
 from typing import Optional

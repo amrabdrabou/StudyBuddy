@@ -1,3 +1,4 @@
+"""Pydantic schemas for authentication requests and responses."""
 from pydantic import BaseModel
 
 

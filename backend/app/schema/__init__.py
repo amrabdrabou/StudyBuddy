@@ -30,17 +30,17 @@ from app.schema.flashcard import (
     FlashcardReviewUpdate,
     FlashcardReviewResponse,
 )
+from app.schema.learning_goal import (
+    LearningGoalBase,
+    LearningGoalCreate,
+    LearningGoalUpdate,
+    LearningGoalResponse,
+)
 from app.schema.study_session import (
     StudySessionBase,
     StudySessionCreate,
     StudySessionUpdate,
     StudySessionResponse,
-)
-from app.schema.study_goal import (
-    StudyGoalBase,
-    StudyGoalCreate,
-    StudyGoalUpdate,
-    StudyGoalResponse,
 )
 from app.schema.session_participant import (
     SessionParticipantBase,
@@ -76,6 +76,17 @@ from app.schema.session_ai_event import (
     SessionAiEventUpdate,
     SessionAiEventResponse,
 )
+from app.schema.quiz_set import (
+    QuizSetBase,
+    QuizSetCreate,
+    QuizSetUpdate,
+    QuizSetResponse,
+)
+from app.schema.quiz_option import (
+    QuizOptionCreate,
+    QuizOptionUpdate,
+    QuizOptionResponse,
+)
 from app.schema.quiz_question import (
     QuizQuestionBase,
     QuizQuestionCreate,
@@ -84,7 +95,12 @@ from app.schema.quiz_question import (
 )
 from app.schema.quiz_attempt import (
     QuizAttemptCreate,
+    QuizAttemptUpdate,
     QuizAttemptResponse,
+)
+from app.schema.quiz_attempt_answer import (
+    QuizAttemptAnswerCreate,
+    QuizAttemptAnswerResponse,
 )
 from app.schema.session_reflection import (
     SessionReflectionBase,
@@ -109,8 +125,23 @@ from app.schema.study_group import (
     SharedResourceUpdate,
     SharedResourceResponse,
 )
+from app.schema.timeline_event import (
+    TimelineEventCreate,
+    TimelineEventResponse,
+)
+from app.schema.ai_recommendation import (
+    AiRecommendationCreate,
+    AiRecommendationUpdate,
+    AiRecommendationResponse,
+)
+from app.schema.progress_snapshot import (
+    ProgressSnapshotCreate,
+    ProgressSnapshotResponse,
+)
 
 __all__ = [
+    # Auth
+    "TokenOut",
     # User
     "UserBase", "UserCreate", "UserUpdate", "UserResponse",
     # Token
@@ -127,10 +158,10 @@ __all__ = [
     "FlashcardDeckBase", "FlashcardDeckCreate", "FlashcardDeckUpdate", "FlashcardDeckResponse",
     "FlashcardBase", "FlashcardCreate", "FlashcardUpdate", "FlashcardResponse",
     "FlashcardReviewBase", "FlashcardReviewCreate", "FlashcardReviewUpdate", "FlashcardReviewResponse",
+    # LearningGoal
+    "LearningGoalBase", "LearningGoalCreate", "LearningGoalUpdate", "LearningGoalResponse",
     # StudySession
     "StudySessionBase", "StudySessionCreate", "StudySessionUpdate", "StudySessionResponse",
-    # StudyGoal
-    "StudyGoalBase", "StudyGoalCreate", "StudyGoalUpdate", "StudyGoalResponse",
     # StudyGroup
     "StudyGroupBase", "StudyGroupCreate", "StudyGroupUpdate", "StudyGroupResponse",
     "StudyGroupMemberResponse",
@@ -148,12 +179,24 @@ __all__ = [
     "MicroGoalBase", "MicroGoalCreate", "MicroGoalUpdate", "MicroGoalResponse",
     # SessionAiEvent
     "SessionAiEventBase", "SessionAiEventCreate", "SessionAiEventUpdate", "SessionAiEventResponse",
+    # QuizSet
+    "QuizSetBase", "QuizSetCreate", "QuizSetUpdate", "QuizSetResponse",
+    # QuizOption
+    "QuizOptionCreate", "QuizOptionUpdate", "QuizOptionResponse",
     # QuizQuestion
     "QuizQuestionBase", "QuizQuestionCreate", "QuizQuestionUpdate", "QuizQuestionResponse",
     # QuizAttempt
-    "QuizAttemptCreate", "QuizAttemptResponse",
+    "QuizAttemptCreate", "QuizAttemptUpdate", "QuizAttemptResponse",
+    # QuizAttemptAnswer
+    "QuizAttemptAnswerCreate", "QuizAttemptAnswerResponse",
     # SessionReflection
     "SessionReflectionBase", "SessionReflectionCreate", "SessionReflectionUpdate", "SessionReflectionResponse",
     # SessionRecommendation
     "SessionRecommendationBase", "SessionRecommendationCreate", "SessionRecommendationUpdate", "SessionRecommendationResponse",
+    # Timeline
+    "TimelineEventCreate", "TimelineEventResponse",
+    # AiRecommendation
+    "AiRecommendationCreate", "AiRecommendationUpdate", "AiRecommendationResponse",
+    # ProgressSnapshot
+    "ProgressSnapshotCreate", "ProgressSnapshotResponse",
 ]

@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model for a collaborative study group."""
 from __future__ import annotations
 
 import uuid
@@ -16,6 +17,10 @@ if TYPE_CHECKING:
 
 
 class StudyGroup(Base):
+    """
+    Collaborative workspace where multiple users can share resources,
+    chat, and coordinate group study sessions.
+    """
     __tablename__ = "study_groups"
 
     # The user who created / owns the group

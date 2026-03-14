@@ -1,3 +1,4 @@
+"""API router for logging and retrieving AI events that occurred during a session."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model tracking resources shared within a study group."""
 from __future__ import annotations
 
 import uuid
@@ -15,6 +16,11 @@ if TYPE_CHECKING:
 
 
 class SharedResource(Base):
+    """
+    Tracks which learning materials (Documents, Flashcard Decks, Notes) 
+    have been made available to all members of a Study Group.
+    Acts as a Polymorphic join between a group and various resource types.
+    """
     __tablename__ = "shared_resources"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -23,7 +29,8 @@ class SharedResource(Base):
     study_group_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("study_groups.id", ondelete="CASCADE"), nullable=False, index=True
     )
-    resource_type: Mapped[str] = mapped_column(String, nullable=False)  # "document" | "note" | "deck"
+    
+    # Indicates which table resource_id belongs to: "document" | "note" | "deck"
     resource_id: Mapped[uuid.UUID] = mapped_column(String, nullable=False)
     title: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     shared_at: Mapped[datetime] = mapped_column(

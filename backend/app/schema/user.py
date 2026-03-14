@@ -1,3 +1,4 @@
+"""Pydantic schemas for user registration, profile reads, and updates."""
 import uuid
 from datetime import datetime
 from typing import Optional

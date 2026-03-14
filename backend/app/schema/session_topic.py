@@ -1,3 +1,4 @@
+"""Pydantic schemas for topics associated with a study session."""
 import uuid
 from datetime import datetime
 from typing import Optional

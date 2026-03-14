@@ -1,3 +1,4 @@
+"""Pydantic schemas for reading and managing AI-extracted document topics."""
 import uuid
 from datetime import datetime
 from typing import Optional

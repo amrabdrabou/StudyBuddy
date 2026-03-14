@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model tracking a user's spaced-repetition review of a flashcard."""
 from __future__ import annotations
 
 import uuid
@@ -15,9 +16,13 @@ if TYPE_CHECKING:
 
 
 class FlashcardReview(Base):
+    """
+    Records an individual study attempt for a flashcard within a study session.
+    Used to track historical performance and calculate the next interval using spaced repetition.
+    """
     __tablename__ = "flashcard_reviews"
 
-    # Composite PK: one review record per flashcard per session
+    # Composite PK logically: one ultimate review record per flashcard per session
     flashcard_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("flashcards.id", ondelete="CASCADE"), primary_key=True
     )
@@ -25,8 +30,14 @@ class FlashcardReview(Base):
         ForeignKey("study_sessions.id", ondelete="CASCADE"), primary_key=True
     )
 
-    quality_rating: Mapped[int] = mapped_column(Integer, nullable=False)  # SM-2: 0-5
+    # SuperMemo-2 (SM-2) quality rating:
+    # 0=Blackout, 1=Wrong, 2=Wrong (easy), 3=Hard, 4=Good, 5=Perfect
+    quality_rating: Mapped[int] = mapped_column(Integer, nullable=False)
+    
+    # Calculated immediately after the review based on the rating
     next_review_date: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    
+    # Historical counters cached on the review for analytics (e.g. how many tries it took to get here)
     total_reviews: Mapped[int] = mapped_column(Integer, default=0)
     correct_reviews: Mapped[int] = mapped_column(Integer, default=0)
 

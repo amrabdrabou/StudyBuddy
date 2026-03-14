@@ -1,3 +1,4 @@
+"""SQLAlchemy ORM model representing a study subject or course."""
 from __future__ import annotations
 
 import uuid
@@ -15,10 +16,15 @@ if TYPE_CHECKING:
     from app.models.document import Document
     from app.models.flashcard_deck import FlashcardDeck
     from app.models.study_session import StudySession
-    from app.models.study_goal import StudyGoal
+    from app.models.learning_goal import LearningGoal
 
 
 class StudySubject(Base):
+    """
+    Top-level organizational bucket for a user's materials.
+    E.g. "Biology 101" or "AWS Certification".
+    Sessions, Documents, Notes, and Goals generally fall under a Subject.
+    """
     __tablename__ = "study_subjects"
 
     user_id: Mapped[uuid.UUID] = mapped_column(
@@ -53,6 +59,6 @@ class StudySubject(Base):
     study_sessions: Mapped[List["StudySession"]] = relationship(
         "StudySession", back_populates="study_subject", lazy="noload"
     )
-    study_goals: Mapped[List["StudyGoal"]] = relationship(
-        "StudyGoal", back_populates="study_subject", lazy="noload"
+    learning_goals: Mapped[List["LearningGoal"]] = relationship(
+        "LearningGoal", back_populates="study_subject", lazy="noload"
     )

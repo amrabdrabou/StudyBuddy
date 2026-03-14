@@ -1,3 +1,4 @@
+"""API router for creating and tracking micro-goals within a study session."""
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status

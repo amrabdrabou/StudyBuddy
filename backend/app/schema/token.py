@@ -1,3 +1,4 @@
+"""Pydantic schemas for token read responses."""
 import uuid
 from datetime import datetime
 
