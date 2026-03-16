@@ -10,7 +10,7 @@ from app.api.v1.utils import get_owned_session
 from app.core.db_setup import get_db
 from app.models.session_reflection import SessionReflection
 from app.models.user import User
-from app.schema.session_reflection import (
+from app.schemas.session_reflection import (
     SessionReflectionCreate,
     SessionReflectionResponse,
     SessionReflectionUpdate,

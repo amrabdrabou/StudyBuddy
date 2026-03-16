@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
+import { authFetch } from "./client";
 
 export type SessionStatus = "pending" | "active" | "completed" | "abandoned";
 export type IntentionType = "review" | "learn_new" | "practice" | "exam_prep" | "other";
@@ -19,23 +19,6 @@ export interface StudySession {
   is_completed: boolean;
   created_at: string;
   updated_at: string;
-}
-
-async function authFetch(path: string, init: RequestInit = {}): Promise<Response> {
-  const token = localStorage.getItem("access_token");
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(init.headers ?? {}),
-    },
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail ?? `Request failed: ${res.status}`);
-  }
-  return res;
 }
 
 export async function getSessions(): Promise<StudySession[]> {
@@ -65,6 +48,7 @@ export async function updateSession(
     actual_started_at?: string;
     ended_at?: string;
     duration_minutes?: number;
+    is_completed?: boolean;
   }
 ): Promise<StudySession> {
   const res = await authFetch(`/sessions/${id}`, {
@@ -76,4 +60,9 @@ export async function updateSession(
 
 export async function deleteSession(id: string): Promise<void> {
   await authFetch(`/sessions/${id}`, { method: "DELETE" });
+}
+
+export async function getSessionsBySubject(subjectId: string): Promise<StudySession[]> {
+  const res = await authFetch(`/subjects/${subjectId}/sessions/`);
+  return res.json();
 }

@@ -36,13 +36,23 @@ class Document(Base):
     )
     
     title: Mapped[str] = mapped_column(String, nullable=False)
-    file_name: Mapped[str] = mapped_column(String, nullable=False)
-    file_path: Mapped[str] = mapped_column(String, nullable=False) # Physical/cloud storage path
-    file_type: Mapped[str] = mapped_column(String, nullable=False) # MIME type or extension
+    file_name: Mapped[str] = mapped_column(String, nullable=False)                    # original client filename
+    stored_filename: Mapped[Optional[str]] = mapped_column(String, nullable=True)     # UUID-prefixed safe filename on disk
+    file_path: Mapped[str] = mapped_column(String, nullable=False)                    # relative storage path
+    file_type: Mapped[str] = mapped_column(String, nullable=False)                    # MIME type
     file_size_bytes: Mapped[int] = mapped_column(Integer, nullable=False)
-    
-    # State machine for file ingestion: pending | processing | completed | failed
+
+    # upload_status  — tracks the file-write step:  pending | uploaded | failed
+    upload_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+
+    # processing_status — tracks the AI pipeline step:  pending | processing | completed | failed
     processing_status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+
+    # extraction_status — tracks text extraction:  not_started | extracting | extracted | failed
+    extraction_status: Mapped[str] = mapped_column(String, nullable=False, default="not_started")
+
+    # Stores the failure reason when upload_status or extraction_status is "failed"
+    error_message: Mapped[Optional[str]] = mapped_column(String, nullable=True)
     
     # Denormalized raw text cache (if appropriate). Can be populated by OCR or PDF extraction
     extracted_text: Mapped[Optional[str]] = mapped_column(String, nullable=True)

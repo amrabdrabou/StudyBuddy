@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM model for persisted refresh/access tokens."""
+"""SQLAlchemy ORM model for persisted access tokens."""
 from __future__ import annotations
 
 import uuid
@@ -16,18 +16,26 @@ if TYPE_CHECKING:
 
 class Token(Base):
     """
-    Represents a persistent refresh or access token for a user.
-    Used for managing active user sessions.
+    Represents a persisted access token for a user session.
+
+    Security design:
+    - `token` stores the SHA-256 hash of the raw token, never the plaintext.
+    - Only the raw token is returned to the client at login time.
+    - On every authenticated request the incoming raw token is hashed and
+      looked up, so a database breach exposes no usable credentials.
     """
     __tablename__ = "tokens"
 
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    
-    # The actual token string (usually hashed before storage)
-    token: Mapped[str] = mapped_column(String, nullable=False, unique=True, index=True)
-    
-    # Absolute timestamp after which the token is invalid
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+
+    # SHA-256 hash of the raw token string (hex digest, 64 chars)
+    token: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+
+    # "access" or "refresh"
+    token_type: Mapped[str] = mapped_column(String(10), nullable=False, server_default="access")
+
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
-    # many-to-one → User
     user: Mapped["User"] = relationship("User", back_populates="tokens", lazy="selectin")

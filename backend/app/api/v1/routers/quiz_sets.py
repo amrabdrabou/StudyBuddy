@@ -14,11 +14,11 @@ from app.models.quiz_option import QuizOption
 from app.models.quiz_question import QuizQuestion
 from app.models.quiz_set import QuizSet
 from app.models.user import User
-from app.schema.quiz_attempt import QuizAttemptCreate, QuizAttemptResponse, QuizAttemptUpdate
-from app.schema.quiz_attempt_answer import QuizAttemptAnswerCreate, QuizAttemptAnswerResponse
-from app.schema.quiz_option import QuizOptionCreate, QuizOptionResponse, QuizOptionUpdate
-from app.schema.quiz_question import QuizQuestionCreate, QuizQuestionResponse, QuizQuestionUpdate
-from app.schema.quiz_set import QuizSetCreate, QuizSetResponse, QuizSetUpdate
+from app.schemas.quiz_attempt import QuizAttemptCreate, QuizAttemptResponse, QuizAttemptUpdate
+from app.schemas.quiz_attempt_answer import QuizAttemptAnswerCreate, QuizAttemptAnswerResponse
+from app.schemas.quiz_option import QuizOptionCreate, QuizOptionResponse, QuizOptionUpdate
+from app.schemas.quiz_question import QuizQuestionCreate, QuizQuestionResponse, QuizQuestionUpdate
+from app.schemas.quiz_set import QuizSetCreate, QuizSetResponse, QuizSetUpdate
 
 router = APIRouter(prefix="/quiz-sets", tags=["quiz-sets"])
 

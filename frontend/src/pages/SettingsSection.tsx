@@ -1,11 +1,59 @@
-import type { MainDashboard } from "../api/dashboard";
+import { useState } from "react";
+import type { MainDashboard, UserProfile } from "../api/dashboard";
+import { updateProfile, getToken } from "../api/auth";
 
 interface SettingsSectionProps {
     dashMain: MainDashboard | null;
+    userProfile: UserProfile | null;
 }
 
-export default function SettingsSection({ dashMain }: SettingsSectionProps) {
-    const user = dashMain?.user;
+export default function SettingsSection({ dashMain, userProfile }: SettingsSectionProps) {
+    // Prefer the fresh /auth/me profile; fall back to the dashboard aggregate.
+    const displayName = userProfile
+        ? [userProfile.first_name, userProfile.last_name].filter(Boolean).join(" ")
+        : dashMain?.user.full_name ?? "";
+    const displayUsername = userProfile?.username ?? dashMain?.user.username ?? "";
+    const displayEmail = userProfile?.email ?? dashMain?.user.email ?? "";
+    const displayProvider = userProfile?.auth_provider ?? dashMain?.user.auth_provider ?? "local";
+    const avatarLetter = (displayName || displayUsername || displayEmail || "U")
+        .charAt(0)
+        .toUpperCase();
+
+    // ── Editable profile state ────────────────────────────────────────────────
+    const [firstName, setFirstName] = useState(userProfile?.first_name ?? "");
+    const [lastName, setLastName] = useState(userProfile?.last_name ?? "");
+    const [saving, setSaving] = useState(false);
+    const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
+    const [saveError, setSaveError] = useState("");
+
+    const isDirty =
+        firstName !== (userProfile?.first_name ?? "") ||
+        lastName !== (userProfile?.last_name ?? "");
+
+    async function handleSave() {
+        const token = getToken();
+        if (!token) {
+            setSaveStatus("error");
+            setSaveError("Not authenticated. Please log in again.");
+            return;
+        }
+        setSaving(true);
+        setSaveStatus("idle");
+        setSaveError("");
+        try {
+            await updateProfile(token, {
+                first_name: firstName.trim() || undefined,
+                last_name: lastName.trim() || undefined,
+            });
+            setSaveStatus("success");
+            setTimeout(() => setSaveStatus("idle"), 3000);
+        } catch (err) {
+            setSaveStatus("error");
+            setSaveError(err instanceof Error ? err.message : "Failed to save changes.");
+        } finally {
+            setSaving(false);
+        }
+    }
 
     return (
         <div className="flex flex-col gap-10 pb-16">
@@ -41,27 +89,101 @@ export default function SettingsSection({ dashMain }: SettingsSectionProps) {
 
                     <div className="flex items-center gap-6 mb-8">
                         <div className="w-24 h-24 rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center text-4xl font-bold text-white shadow-lg border-4 border-slate-900">
-                            {user?.full_name ? user.full_name.charAt(0).toUpperCase() : (user?.username?.charAt(0).toUpperCase() || "U")}
+                            {avatarLetter}
                         </div>
                         <div>
-                            <p className="text-2xl font-bold text-white">{user?.full_name || "Scholar Worker"}</p>
-                            <p className="text-indigo-400 font-medium">@{user?.username || "scholar"}</p>
+                            <p className="text-2xl font-bold text-white">
+                                {displayName || displayUsername || "Scholar Worker"}
+                            </p>
+                            {displayUsername && (
+                                <p className="text-indigo-400 font-medium">@{displayUsername}</p>
+                            )}
                         </div>
                     </div>
 
                     <div className="space-y-4">
+                        {/* Email — read-only (requires verification flow to change) */}
                         <div>
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
-                            <div className="mt-1 px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white">
-                                {user?.email || "No email provided"}
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                Email Address
+                            </label>
+                            <div className="mt-1 px-4 py-3 bg-white/[0.03] border border-white/10 rounded-xl text-gray-400 flex items-center justify-between">
+                                <span>{displayEmail || "No email provided"}</span>
+                                <span className="text-[10px] text-gray-600 uppercase tracking-widest ml-3">read-only</span>
                             </div>
                         </div>
+
+                        {/* First Name */}
                         <div>
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Full Name</label>
-                            <div className="mt-1 px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white">
-                                {user?.full_name || "Not set"}
-                            </div>
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                First Name
+                            </label>
+                            <input
+                                type="text"
+                                value={firstName}
+                                onChange={e => { setFirstName(e.target.value); setSaveStatus("idle"); }}
+                                placeholder="Your first name"
+                                className="mt-1 w-full px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white
+                                           placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.08]
+                                           transition-colors"
+                            />
                         </div>
+
+                        {/* Last Name */}
+                        <div>
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                Last Name
+                            </label>
+                            <input
+                                type="text"
+                                value={lastName}
+                                onChange={e => { setLastName(e.target.value); setSaveStatus("idle"); }}
+                                placeholder="Your last name"
+                                className="mt-1 w-full px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white
+                                           placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.08]
+                                           transition-colors"
+                            />
+                        </div>
+
+                        {/* Save feedback */}
+                        {saveStatus === "success" && (
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                                </svg>
+                                Profile saved successfully.
+                            </div>
+                        )}
+                        {saveStatus === "error" && (
+                            <div className="flex items-center gap-2 px-4 py-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm">
+                                <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                {saveError}
+                            </div>
+                        )}
+
+                        {/* Save button */}
+                        <button
+                            onClick={handleSave}
+                            disabled={!isDirty || saving}
+                            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700
+                                       text-white font-semibold rounded-xl transition-colors
+                                       disabled:opacity-40 disabled:cursor-not-allowed
+                                       flex items-center justify-center gap-2"
+                        >
+                            {saving ? (
+                                <>
+                                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                                    </svg>
+                                    Saving…
+                                </>
+                            ) : (
+                                "Save Changes"
+                            )}
+                        </button>
                     </div>
                 </div>
 
@@ -82,7 +204,7 @@ export default function SettingsSection({ dashMain }: SettingsSectionProps) {
                                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Login Provider</label>
                                 <div className="mt-2 flex items-center gap-3">
                                     <div className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium capitalize">
-                                        {user?.auth_provider || "local"} Account
+                                        {displayProvider} Account
                                     </div>
                                     <span className="text-sm text-gray-400">Securely verified</span>
                                 </div>
@@ -104,7 +226,6 @@ export default function SettingsSection({ dashMain }: SettingsSectionProps) {
 
                     {/* Study Preferences Card (Read Only placeholder) */}
                     <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/80 border border-indigo-500/20 rounded-3xl p-8 backdrop-blur-xl shadow-lg relative overflow-hidden flex-1">
-                        {/* Decorative glow */}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-2xl rounded-full translate-x-10 -translate-y-10"></div>
 
                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
@@ -123,7 +244,7 @@ export default function SettingsSection({ dashMain }: SettingsSectionProps) {
                                 <p className="text-xs text-gray-400">Target study minutes per day</p>
                             </div>
                             <div className="text-xl font-bold tracking-tight text-white">
-                                45<span className="text-sm text-indigo-400 ml-1">min</span>
+                                —<span className="text-sm text-indigo-400 ml-1">min</span>
                             </div>
                         </div>
                     </div>
@@ -133,4 +254,3 @@ export default function SettingsSection({ dashMain }: SettingsSectionProps) {
         </div>
     );
 }
-

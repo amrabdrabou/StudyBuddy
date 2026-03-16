@@ -9,7 +9,7 @@ from app.api.v1.dependencies import get_current_active_user
 from app.core.db_setup import get_db
 from app.models.timeline_event import TimelineEvent
 from app.models.user import User
-from app.schema.timeline_event import TimelineEventCreate, TimelineEventResponse
+from app.schemas.timeline_event import TimelineEventCreate, TimelineEventResponse
 
 router = APIRouter(prefix="/timeline", tags=["timeline"])
 

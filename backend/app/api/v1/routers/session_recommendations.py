@@ -10,7 +10,7 @@ from app.api.v1.utils import get_owned_session
 from app.core.db_setup import get_db
 from app.models.session_recommendation import SessionRecommendation
 from app.models.user import User
-from app.schema.session_recommendation import (
+from app.schemas.session_recommendation import (
     SessionRecommendationCreate,
     SessionRecommendationResponse,
     SessionRecommendationUpdate,

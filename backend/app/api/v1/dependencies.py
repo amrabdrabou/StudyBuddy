@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db_setup import get_db
-from app.core.security import oauth2_scheme
+from app.core.security import hash_token, oauth2_scheme
 from app.models.token import Token
 from app.models.user import User
 
@@ -18,22 +18,28 @@ _credentials_exception = HTTPException(
 
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
+    raw_token: str = Depends(oauth2_scheme),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    result = await db.execute(select(Token).where(Token.token == token))
+    """
+    Validate the Bearer token and return the associated User.
+
+    Tokens are stored as SHA-256 hashes in the DB.
+    We hash the incoming raw token before looking it up — the plaintext
+    never touches the database, so a DB breach does not expose live tokens.
+    """
+    hashed = hash_token(raw_token)
+    result = await db.execute(select(Token).where(Token.token == hashed))
     db_token = result.scalar_one_or_none()
 
     if db_token is None:
         raise _credentials_exception
 
-    # expires_at is timezone-aware (stored with timezone=True)
     if db_token.expires_at < datetime.now(timezone.utc):
         await db.delete(db_token)
         await db.commit()
         raise _credentials_exception
 
-    # Token.user is lazy="selectin" so it's already loaded
     return db_token.user
 
 

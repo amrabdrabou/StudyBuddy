@@ -23,14 +23,14 @@ from app.models.study_group_member import StudyGroupMember
 from app.models.study_session import StudySession
 from app.models.timeline_event import TimelineEvent
 from app.models.user import User
-from app.schema.ai_recommendation import AiRecommendationResponse
-from app.schema.flashcard import FlashcardResponse
-from app.schema.learning_goal import LearningGoalResponse
-from app.schema.progress_snapshot import ProgressSnapshotResponse
-from app.schema.quiz_attempt import QuizAttemptResponse
-from app.schema.study_group import StudyGroupResponse
-from app.schema.study_session import StudySessionResponse
-from app.schema.timeline_event import TimelineEventResponse
+from app.schemas.ai_recommendation import AiRecommendationResponse
+from app.schemas.flashcard import FlashcardResponse
+from app.schemas.learning_goal import LearningGoalResponse
+from app.schemas.progress_snapshot import ProgressSnapshotResponse
+from app.schemas.quiz_attempt import QuizAttemptResponse
+from app.schemas.study_group import StudyGroupResponse
+from app.schemas.study_session import StudySessionResponse
+from app.schemas.timeline_event import TimelineEventResponse
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
 

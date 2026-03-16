@@ -55,7 +55,12 @@ export default function RegisterPage({ onSuccess, onGoToLogin, onGoToHome }: Pro
       {/* Sticky Nav */}
       <nav className="sticky top-0 z-50 bg-slate-950/95 backdrop-blur border-b border-white/10">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <button onClick={onGoToHome} className="text-white font-extrabold text-xl tracking-tighter cursor-pointer select-none">Study<span className="text-indigo-400">Buddy</span></button>
+          <button onClick={onGoToHome} className="flex items-center gap-2 cursor-pointer select-none">
+            <img src="/assets/Logomark_final3.svg" alt="StudyBuddy" className="w-8 h-8" />
+            <span className="text-white font-extrabold text-xl tracking-tighter">
+              Study<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">Buddy</span>
+            </span>
+          </button>
           <button
             onClick={onGoToLogin}
             className="text-gray-300 hover:text-white text-sm font-medium transition-colors"

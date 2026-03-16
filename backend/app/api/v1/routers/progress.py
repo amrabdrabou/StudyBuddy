@@ -10,7 +10,7 @@ from app.api.v1.dependencies import get_current_active_user
 from app.core.db_setup import get_db
 from app.models.progress_snapshot import ProgressSnapshot
 from app.models.user import User
-from app.schema.progress_snapshot import ProgressSnapshotCreate, ProgressSnapshotResponse
+from app.schemas.progress_snapshot import ProgressSnapshotCreate, ProgressSnapshotResponse
 
 router = APIRouter(prefix="/progress", tags=["progress"])
 

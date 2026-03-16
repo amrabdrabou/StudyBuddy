@@ -15,7 +15,7 @@ from app.core.db_setup import get_db
 from app.models.quiz_question import QuizQuestion
 from app.models.quiz_set import QuizSet
 from app.models.user import User
-from app.schema.quiz_question import QuizQuestionResponse
+from app.schemas.quiz_question import QuizQuestionResponse
 
 router = APIRouter(prefix="/sessions/{session_id}/quiz", tags=["quiz"])
 

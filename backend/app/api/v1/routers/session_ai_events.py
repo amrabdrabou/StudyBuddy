@@ -1,20 +1,24 @@
 """API router for logging and retrieving AI events that occurred during a session."""
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import get_current_active_user
 from app.api.v1.utils import get_owned_session
+from app.core.config import get_settings
 from app.core.db_setup import get_db
+from app.core.limiter import limiter
 from app.models.session_ai_event import SessionAiEvent
 from app.models.user import User
-from app.schema.session_ai_event import (
+from app.schemas.session_ai_event import (
     SessionAiEventCreate,
     SessionAiEventResponse,
     SessionAiEventUpdate,
 )
+
+_settings = get_settings()
 
 router = APIRouter(prefix="/sessions/{session_id}/ai-events", tags=["session-ai-events"])
 
@@ -48,7 +52,9 @@ async def list_ai_events(
 
 
 @router.post("/", response_model=SessionAiEventResponse, status_code=status.HTTP_201_CREATED)
+@limiter.limit(_settings.ai_event_rate_limit)
 async def create_ai_event(
+    request: Request,
     session_id: UUID,
     payload: SessionAiEventCreate,
     current_user: User = Depends(get_current_active_user),

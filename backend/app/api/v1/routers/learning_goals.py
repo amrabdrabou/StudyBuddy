@@ -9,7 +9,7 @@ from app.api.v1.dependencies import get_current_active_user
 from app.core.db_setup import get_db
 from app.models.learning_goal import LearningGoal
 from app.models.user import User
-from app.schema.learning_goal import LearningGoalCreate, LearningGoalResponse, LearningGoalUpdate
+from app.schemas.learning_goal import LearningGoalCreate, LearningGoalResponse, LearningGoalUpdate
 
 router = APIRouter(prefix="/learning-goals", tags=["learning-goals"])
 

@@ -9,7 +9,7 @@ from app.api.v1.dependencies import get_current_active_user
 from app.core.db_setup import get_db
 from app.models.note import Note
 from app.models.user import User
-from app.schema.note import NoteCreate, NoteResponse, NoteUpdate
+from app.schemas.note import NoteCreate, NoteResponse, NoteUpdate
 from app.services.validators import verify_subject_owner
 
 router = APIRouter(prefix="/notes", tags=["Notes"])

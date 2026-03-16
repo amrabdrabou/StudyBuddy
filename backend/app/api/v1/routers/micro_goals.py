@@ -10,7 +10,7 @@ from app.api.v1.utils import get_owned_session
 from app.core.db_setup import get_db
 from app.models.micro_goal import MicroGoal
 from app.models.user import User
-from app.schema.micro_goal import MicroGoalCreate, MicroGoalResponse, MicroGoalUpdate
+from app.schemas.micro_goal import MicroGoalCreate, MicroGoalResponse, MicroGoalUpdate
 
 router = APIRouter(prefix="/sessions/{session_id}/micro-goals", tags=["micro-goals"])
 

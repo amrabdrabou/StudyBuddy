@@ -10,7 +10,7 @@ from app.api.v1.utils import get_owned_session
 from app.core.db_setup import get_db
 from app.models.study_session import StudySession
 from app.models.user import User
-from app.schema.study_session import (
+from app.schemas.study_session import (
     StudySessionCreate,
     StudySessionResponse,
     StudySessionUpdate,

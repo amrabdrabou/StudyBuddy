@@ -9,7 +9,7 @@ from app.api.v1.dependencies import get_current_active_user
 from app.core.db_setup import get_db
 from app.models.ai_recommendation import AiRecommendation
 from app.models.user import User
-from app.schema.ai_recommendation import (
+from app.schemas.ai_recommendation import (
     AiRecommendationCreate,
     AiRecommendationResponse,
     AiRecommendationUpdate,

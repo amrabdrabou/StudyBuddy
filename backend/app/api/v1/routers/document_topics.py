@@ -10,7 +10,7 @@ from app.api.v1.utils import get_owned_document
 from app.core.db_setup import get_db
 from app.models.document_topic import DocumentTopic
 from app.models.user import User
-from app.schema.document_topic import (
+from app.schemas.document_topic import (
     DocumentTopicCreate,
     DocumentTopicResponse,
     DocumentTopicUpdate,
