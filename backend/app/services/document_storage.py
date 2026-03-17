@@ -48,7 +48,7 @@ def get_upload_base() -> Path:
 
 def build_storage_path(
     user_id: UUID,
-    session_id: UUID,
+    workspace_id: UUID,
     file_id: UUID,
     safe_filename: str,
 ) -> str:
@@ -56,12 +56,12 @@ def build_storage_path(
     Returns the relative storage path for a document file.
 
     Structure:
-        users/{user_id}/sessions/{session_id}/documents/{file_id}_{safe_filename}
+        users/{user_id}/workspaces/{workspace_id}/documents/{file_id}_{safe_filename}
 
     Example:
-        users/abc/sessions/def/documents/ghi_rest_apis.pdf
+        users/abc/workspaces/def/documents/ghi_rest_apis.pdf
     """
-    return f"users/{user_id}/sessions/{session_id}/documents/{file_id}_{safe_filename}"
+    return f"users/{user_id}/workspaces/{workspace_id}/documents/{file_id}_{safe_filename}"
 
 
 def make_safe_filename(original: str) -> str:

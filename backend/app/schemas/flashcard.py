@@ -1,122 +1,94 @@
-"""Pydantic schemas for flashcard decks and individual flashcard CRUD."""
+"""Pydantic v2 schemas for FlashcardDeck, Flashcard, and FlashcardReview."""
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, Field
 
 
-# ── FlashcardDeck ─────────────────────────────────────────────────────────────
+# ── Deck ──────────────────────────────────────────────────────────────────────
 
-class FlashcardDeckBase(BaseModel):
-    title: str
+class FlashcardDeckCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
     description: Optional[str] = None
-    color_hex: Optional[str] = None
-    icon: Optional[str] = None
-    is_public: bool = False
-    study_subject_id: Optional[uuid.UUID] = None  # optional grouping
-
-
-class FlashcardDeckCreate(FlashcardDeckBase):
-    pass
+    color_hex: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    icon: Optional[str] = Field(None, max_length=50)
 
 
 class FlashcardDeckUpdate(BaseModel):
-    title: Optional[str] = None
+    title: Optional[str] = Field(None, min_length=1, max_length=300)
     description: Optional[str] = None
-    color_hex: Optional[str] = None
-    icon: Optional[str] = None
-    study_subject_id: Optional[uuid.UUID] = None
-    is_public: Optional[bool] = None
-    is_archived: Optional[bool] = None
+    color_hex: Optional[str] = Field(None, pattern=r"^#[0-9A-Fa-f]{6}$")
+    icon: Optional[str] = Field(None, max_length=50)
 
 
-class FlashcardDeckResponse(FlashcardDeckBase):
-    model_config = ConfigDict(from_attributes=True)
-
+class FlashcardDeckResponse(BaseModel):
     id: uuid.UUID
-    user_id: uuid.UUID
-    is_archived: bool
-    total_flashcards: int
-    mastered_flashcards: int
+    workspace_id: uuid.UUID
+    title: str
+    description: Optional[str]
+    color_hex: Optional[str]
+    icon: Optional[str]
     created_at: datetime
     updated_at: datetime
-    last_studied_at: Optional[datetime] = None
+
+    model_config = {"from_attributes": True}
 
 
-# ── Flashcard ─────────────────────────────────────────────────────────────────
+# ── Card ──────────────────────────────────────────────────────────────────────
 
-class FlashcardBase(BaseModel):
-    front_content: str
-    back_content: str
-    front_content_type: str = "text"
-    back_content_type: str = "text"
+class FlashcardCreate(BaseModel):
+    front_content: str = Field(..., min_length=1)
+    back_content: str = Field(..., min_length=1)
     hint: Optional[str] = None
-    explanation: Optional[str] = None
-    difficulty: Optional[int] = None
-    card_order: Optional[int] = None
-
-
-class FlashcardCreate(FlashcardBase):
-    deck_id: uuid.UUID
+    order_index: int = 0
 
 
 class FlashcardUpdate(BaseModel):
-    front_content: Optional[str] = None
-    back_content: Optional[str] = None
-    front_content_type: Optional[str] = None
-    back_content_type: Optional[str] = None
+    front_content: Optional[str] = Field(None, min_length=1)
+    back_content: Optional[str] = Field(None, min_length=1)
     hint: Optional[str] = None
-    explanation: Optional[str] = None
-    difficulty: Optional[int] = None
-    card_order: Optional[int] = None
-    is_public: Optional[bool] = None
-    is_archived: Optional[bool] = None
+    order_index: Optional[int] = None
+    is_mastered: Optional[bool] = None
 
 
-class FlashcardResponse(FlashcardBase):
-    model_config = ConfigDict(from_attributes=True)
-
+class FlashcardResponse(BaseModel):
     id: uuid.UUID
     deck_id: uuid.UUID
-    interval_days: Optional[int] = None
-    repetitions: Optional[int] = None
-    next_review_date: Optional[datetime] = None
-    last_reviewed_at: Optional[datetime] = None
-    total_reviews: int
-    successful_reviews: int
+    front_content: str
+    back_content: str
+    hint: Optional[str]
+    order_index: int
+    interval_days: Optional[int]
+    repetitions: int
+    next_review_at: Optional[datetime]
+    last_reviewed_at: Optional[datetime]
     is_mastered: bool
-    is_public: bool
-    is_archived: bool
     created_at: datetime
     updated_at: datetime
 
-
-# ── FlashcardReview ───────────────────────────────────────────────────────────
-
-class FlashcardReviewBase(BaseModel):
-    quality_rating: int       # SM-2 scale: 0-5
-    next_review_date: datetime
+    model_config = {"from_attributes": True}
 
 
-class FlashcardReviewCreate(FlashcardReviewBase):
+# ── Review ────────────────────────────────────────────────────────────────────
+
+class FlashcardReviewCreate(BaseModel):
     flashcard_id: uuid.UUID
-    study_session_id: uuid.UUID
+    session_id: uuid.UUID
+    quality_rating: int = Field(..., ge=0, le=5)
+    next_review_at: datetime
 
 
-class FlashcardReviewUpdate(BaseModel):
-    quality_rating: Optional[int] = None
-    next_review_date: Optional[datetime] = None
-    total_reviews: Optional[int] = None
-    correct_reviews: Optional[int] = None
-
-
-class FlashcardReviewResponse(FlashcardReviewBase):
-    model_config = ConfigDict(from_attributes=True)
-
+class FlashcardReviewResponse(BaseModel):
+    id: uuid.UUID
     flashcard_id: uuid.UUID
-    study_session_id: uuid.UUID
+    session_id: uuid.UUID
+    quality_rating: int
+    next_review_at: datetime
     total_reviews: int
     correct_reviews: int
     reviewed_at: datetime
-    updated_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -9,20 +9,19 @@ import { getToken, removeToken } from "./api/auth";
 
 type Page = "home" | "login" | "register" | "dashboard";
 
-type Section = "overview" | "subjects" | "library" | "goals" | "groups" | "settings";
+type Section = "overview" | "subjects" | "workspaces" | "goals" | "settings";
 
 const sectionToPath: Record<Section, string> = {
-  overview:  "/dashboard",
-  subjects:  "/subjects",
-  library:   "/library",
-  goals:     "/goals",
-  groups:    "/groups",
-  settings:  "/settings",
+  overview:   "/dashboard",
+  subjects:   "/subjects",
+  workspaces: "/workspaces",
+  goals:      "/goals",
+  settings:   "/settings",
 };
 
 const pathToSection = (path: string): Section | null => {
-  // Subject detail: /subjects/{uuid}
   if (/^\/subjects\/[0-9a-f-]{36}$/i.test(path)) return "subjects";
+  if (/^\/workspaces\/[0-9a-f-]{36}$/i.test(path)) return "workspaces";
   for (const [section, p] of Object.entries(sectionToPath)) {
     if (path === p) return section as Section;
   }

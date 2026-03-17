@@ -137,7 +137,7 @@ export default function SubjectsPage({ onSignOut, onGoToHome }: Props) {
     setCreateLoading(true);
     setCreateError(null);
     try {
-      const subject = await createSubject(createName.trim());
+      const subject = await createSubject({ name: createName.trim() });
       setSubjects((prev) => [subject, ...prev]);
       setCreateName("");
       setShowCreate(false);
@@ -154,7 +154,7 @@ export default function SubjectsPage({ onSignOut, onGoToHome }: Props) {
     setRenameLoading(true);
     setRenameError(null);
     try {
-      const updated = await updateSubject(renameSubject.id, renameName.trim());
+      const updated = await updateSubject(renameSubject.id, { name: renameName.trim() });
       setSubjects((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
       setRenameSubject(null);
     } catch (e) {

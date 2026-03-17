@@ -1,10 +1,11 @@
-"""SQLAlchemy ORM model for a selectable answer option within a quiz question."""
+"""QuizOption model — one selectable answer for a QuizQuestion."""
 from __future__ import annotations
 
 import uuid
 from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, ForeignKey, SmallInteger, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_setup import Base
@@ -14,25 +15,19 @@ if TYPE_CHECKING:
 
 
 class QuizOption(Base):
-    """
-    A specific multiple-choice answer option for a given QuizQuestion.
-    Defines the text of the option and whether it is the correct answer.
-    """
     __tablename__ = "quiz_options"
 
     question_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("quiz_questions.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("quiz_questions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    
-    # The text presented to the user
     option_text: Mapped[str] = mapped_column(Text, nullable=False)
-    
-    # Indicates if selecting this option awards points for the question
-    is_correct: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    
-    # Display order (e.g., to ensure options appear as A, B, C, D consistently)
-    order_index: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
+    is_correct: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    order_index: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
 
+    # ── Relationships ──────────────────────────────────────────────────────────
     question: Mapped["QuizQuestion"] = relationship(
-        "QuizQuestion", back_populates="options", lazy="selectin"
+        "QuizQuestion", back_populates="options", lazy="noload"
     )

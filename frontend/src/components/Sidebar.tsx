@@ -1,5 +1,3 @@
-import React from "react";
-
 const Sidebar = () => (
     <aside style={{
         width: 72,

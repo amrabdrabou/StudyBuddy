@@ -1,12 +1,14 @@
-"""API router for managing quiz sets and their questions within a session."""
-from uuid import UUID
+"""Quiz router — quiz sets, questions, and attempts nested under workspaces."""
+from __future__ import annotations
+
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import get_current_active_user
-from app.api.v1.utils import get_owned_session
+from app.api.v1.deps import apply_updates, get_workspace
 from app.core.db_setup import get_db
 from app.models.quiz_attempt import QuizAttempt
 from app.models.quiz_attempt_answer import QuizAttemptAnswer
@@ -14,20 +16,22 @@ from app.models.quiz_option import QuizOption
 from app.models.quiz_question import QuizQuestion
 from app.models.quiz_set import QuizSet
 from app.models.user import User
-from app.schemas.quiz_attempt import QuizAttemptCreate, QuizAttemptResponse, QuizAttemptUpdate
-from app.schemas.quiz_attempt_answer import QuizAttemptAnswerCreate, QuizAttemptAnswerResponse
-from app.schemas.quiz_option import QuizOptionCreate, QuizOptionResponse, QuizOptionUpdate
-from app.schemas.quiz_question import QuizQuestionCreate, QuizQuestionResponse, QuizQuestionUpdate
-from app.schemas.quiz_set import QuizSetCreate, QuizSetResponse, QuizSetUpdate
+from app.models.workspace import Workspace
+from app.schemas.quiz import (
+    QuizAttemptAnswerCreate, QuizAttemptAnswerResponse,
+    QuizAttemptCreate, QuizAttemptResponse, QuizAttemptUpdate,
+    QuizQuestionCreate, QuizQuestionResponse,
+    QuizSetCreate, QuizSetResponse, QuizSetUpdate,
+)
 
-router = APIRouter(prefix="/quiz-sets", tags=["quiz-sets"])
+router = APIRouter(prefix="/workspaces/{workspace_id}/quiz-sets", tags=["quizzes"])
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
-async def _get_owned_quiz_set(quiz_set_id: UUID, user: User, db: AsyncSession) -> QuizSet:
+async def _get_quiz_set_or_404(
+    quiz_set_id: uuid.UUID, workspace_id: uuid.UUID, db: AsyncSession
+) -> QuizSet:
     result = await db.execute(
-        select(QuizSet).where(QuizSet.id == quiz_set_id, QuizSet.user_id == user.id)
+        select(QuizSet).where(QuizSet.id == quiz_set_id, QuizSet.workspace_id == workspace_id)
     )
     qs = result.scalar_one_or_none()
     if qs is None:
@@ -35,42 +39,35 @@ async def _get_owned_quiz_set(quiz_set_id: UUID, user: User, db: AsyncSession) -
     return qs
 
 
-async def _get_question(quiz_set_id: UUID, question_id: UUID, db: AsyncSession) -> QuizQuestion:
-    result = await db.execute(
-        select(QuizQuestion).where(
-            QuizQuestion.id == question_id,
-            QuizQuestion.quiz_set_id == quiz_set_id,
-        )
-    )
-    q = result.scalar_one_or_none()
-    if q is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
-    return q
-
-
 # ── Quiz Sets ─────────────────────────────────────────────────────────────────
 
 @router.get("/", response_model=list[QuizSetResponse])
 async def list_quiz_sets(
-    session_id: UUID | None = None,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: Workspace = Depends(get_workspace),
 ):
-    query = select(QuizSet).where(QuizSet.user_id == current_user.id)
-    if session_id:
-        query = query.where(QuizSet.session_id == session_id)
-    result = await db.execute(query.order_by(QuizSet.created_at.desc()))
+    result = await db.execute(
+        select(QuizSet)
+        .where(QuizSet.workspace_id == workspace_id)
+        .order_by(QuizSet.created_at.desc())
+    )
     return result.scalars().all()
 
 
 @router.post("/", response_model=QuizSetResponse, status_code=status.HTTP_201_CREATED)
 async def create_quiz_set(
-    payload: QuizSetCreate,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    body: QuizSetCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    _: Workspace = Depends(get_workspace),
 ):
-    await get_owned_session(payload.session_id, current_user, db)
-    qs = QuizSet(user_id=current_user.id, **payload.model_dump())
+    qs = QuizSet(
+        workspace_id=workspace_id,
+        created_by_user_id=current_user.id,
+        **body.model_dump(),
+    )
     db.add(qs)
     await db.commit()
     await db.refresh(qs)
@@ -79,23 +76,24 @@ async def create_quiz_set(
 
 @router.get("/{quiz_set_id}", response_model=QuizSetResponse)
 async def get_quiz_set(
-    quiz_set_id: UUID,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: Workspace = Depends(get_workspace),
 ):
-    return await _get_owned_quiz_set(quiz_set_id, current_user, db)
+    return await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
 
 
 @router.patch("/{quiz_set_id}", response_model=QuizSetResponse)
 async def update_quiz_set(
-    quiz_set_id: UUID,
-    payload: QuizSetUpdate,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
+    body: QuizSetUpdate,
     db: AsyncSession = Depends(get_db),
+    _: Workspace = Depends(get_workspace),
 ):
-    qs = await _get_owned_quiz_set(quiz_set_id, current_user, db)
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(qs, field, value)
+    qs = await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
+    apply_updates(qs, body.model_dump(exclude_unset=True))
     await db.commit()
     await db.refresh(qs)
     return qs
@@ -103,11 +101,12 @@ async def update_quiz_set(
 
 @router.delete("/{quiz_set_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_quiz_set(
-    quiz_set_id: UUID,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: Workspace = Depends(get_workspace),
 ):
-    qs = await _get_owned_quiz_set(quiz_set_id, current_user, db)
+    qs = await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
     await db.delete(qs)
     await db.commit()
 
@@ -116,11 +115,12 @@ async def delete_quiz_set(
 
 @router.get("/{quiz_set_id}/questions", response_model=list[QuizQuestionResponse])
 async def list_questions(
-    quiz_set_id: UUID,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: Workspace = Depends(get_workspace),
 ):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
+    await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
     result = await db.execute(
         select(QuizQuestion)
         .where(QuizQuestion.quiz_set_id == quiz_set_id)
@@ -131,33 +131,22 @@ async def list_questions(
 
 @router.post("/{quiz_set_id}/questions", response_model=QuizQuestionResponse, status_code=status.HTTP_201_CREATED)
 async def create_question(
-    quiz_set_id: UUID,
-    payload: QuizQuestionCreate,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
+    body: QuizQuestionCreate,
     db: AsyncSession = Depends(get_db),
+    _: Workspace = Depends(get_workspace),
 ):
-    qs = await _get_owned_quiz_set(quiz_set_id, current_user, db)
-    question = QuizQuestion(quiz_set_id=quiz_set_id, **payload.model_dump(exclude={"quiz_set_id"}))
+    await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
+
+    options_data = body.model_dump(exclude={"options"})
+    question = QuizQuestion(quiz_set_id=quiz_set_id, **options_data)
     db.add(question)
-    # Update cached count
-    qs.question_count += 1
-    await db.commit()
-    await db.refresh(question)
-    return question
+    await db.flush()
 
+    for opt in body.options:
+        db.add(QuizOption(question_id=question.id, **opt.model_dump()))
 
-@router.patch("/{quiz_set_id}/questions/{question_id}", response_model=QuizQuestionResponse)
-async def update_question(
-    quiz_set_id: UUID,
-    question_id: UUID,
-    payload: QuizQuestionUpdate,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
-    question = await _get_question(quiz_set_id, question_id, db)
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(question, field, value)
     await db.commit()
     await db.refresh(question)
     return question
@@ -165,76 +154,22 @@ async def update_question(
 
 @router.delete("/{quiz_set_id}/questions/{question_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_question(
-    quiz_set_id: UUID,
-    question_id: UUID,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
+    question_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    _: Workspace = Depends(get_workspace),
 ):
-    qs = await _get_owned_quiz_set(quiz_set_id, current_user, db)
-    question = await _get_question(quiz_set_id, question_id, db)
-    await db.delete(question)
-    qs.question_count = max(0, qs.question_count - 1)
-    await db.commit()
-
-
-# ── Options ───────────────────────────────────────────────────────────────────
-
-@router.post("/{quiz_set_id}/questions/{question_id}/options", response_model=QuizOptionResponse, status_code=status.HTTP_201_CREATED)
-async def create_option(
-    quiz_set_id: UUID,
-    question_id: UUID,
-    payload: QuizOptionCreate,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
-    await _get_question(quiz_set_id, question_id, db)
-    option = QuizOption(question_id=question_id, **payload.model_dump())
-    db.add(option)
-    await db.commit()
-    await db.refresh(option)
-    return option
-
-
-@router.patch("/{quiz_set_id}/questions/{question_id}/options/{option_id}", response_model=QuizOptionResponse)
-async def update_option(
-    quiz_set_id: UUID,
-    question_id: UUID,
-    option_id: UUID,
-    payload: QuizOptionUpdate,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
+    await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
     result = await db.execute(
-        select(QuizOption).where(QuizOption.id == option_id, QuizOption.question_id == question_id)
+        select(QuizQuestion).where(
+            QuizQuestion.id == question_id, QuizQuestion.quiz_set_id == quiz_set_id
+        )
     )
-    option = result.scalar_one_or_none()
-    if option is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Option not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(option, field, value)
-    await db.commit()
-    await db.refresh(option)
-    return option
-
-
-@router.delete("/{quiz_set_id}/questions/{question_id}/options/{option_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_option(
-    quiz_set_id: UUID,
-    question_id: UUID,
-    option_id: UUID,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
-    result = await db.execute(
-        select(QuizOption).where(QuizOption.id == option_id, QuizOption.question_id == question_id)
-    )
-    option = result.scalar_one_or_none()
-    if option is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Option not found")
-    await db.delete(option)
+    q = result.scalar_one_or_none()
+    if q is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Question not found")
+    await db.delete(q)
     await db.commit()
 
 
@@ -242,30 +177,36 @@ async def delete_option(
 
 @router.get("/{quiz_set_id}/attempts", response_model=list[QuizAttemptResponse])
 async def list_attempts(
-    quiz_set_id: UUID,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    _: Workspace = Depends(get_workspace),
 ):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
+    await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
     result = await db.execute(
-        select(QuizAttempt)
-        .where(QuizAttempt.quiz_set_id == quiz_set_id, QuizAttempt.user_id == current_user.id)
-        .order_by(QuizAttempt.started_at.desc())
+        select(QuizAttempt).where(
+            QuizAttempt.quiz_set_id == quiz_set_id,
+            QuizAttempt.user_id == current_user.id,
+        ).order_by(QuizAttempt.started_at.desc())
     )
     return result.scalars().all()
 
 
 @router.post("/{quiz_set_id}/attempts", response_model=QuizAttemptResponse, status_code=status.HTTP_201_CREATED)
 async def start_attempt(
-    quiz_set_id: UUID,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
+    body: QuizAttemptCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    _: Workspace = Depends(get_workspace),
 ):
-    qs = await _get_owned_quiz_set(quiz_set_id, current_user, db)
+    qs = await _get_quiz_set_or_404(quiz_set_id, workspace_id, db)
     attempt = QuizAttempt(
         quiz_set_id=quiz_set_id,
-        session_id=qs.session_id,
         user_id=current_user.id,
+        time_limit_minutes=body.time_limit_minutes or qs.time_limit_minutes,
     )
     db.add(attempt)
     await db.commit()
@@ -275,13 +216,14 @@ async def start_attempt(
 
 @router.patch("/{quiz_set_id}/attempts/{attempt_id}", response_model=QuizAttemptResponse)
 async def update_attempt(
-    quiz_set_id: UUID,
-    attempt_id: UUID,
-    payload: QuizAttemptUpdate,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
+    attempt_id: uuid.UUID,
+    body: QuizAttemptUpdate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    _: Workspace = Depends(get_workspace),
 ):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
     result = await db.execute(
         select(QuizAttempt).where(
             QuizAttempt.id == attempt_id,
@@ -292,49 +234,48 @@ async def update_attempt(
     attempt = result.scalar_one_or_none()
     if attempt is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attempt not found")
-    for field, value in payload.model_dump(exclude_unset=True).items():
-        setattr(attempt, field, value)
+    apply_updates(attempt, body.model_dump(exclude_unset=True))
     await db.commit()
     await db.refresh(attempt)
     return attempt
 
 
-# ── Attempt Answers ───────────────────────────────────────────────────────────
-
 @router.post("/{quiz_set_id}/attempts/{attempt_id}/answers", response_model=QuizAttemptAnswerResponse, status_code=status.HTTP_201_CREATED)
 async def submit_answer(
-    quiz_set_id: UUID,
-    attempt_id: UUID,
-    payload: QuizAttemptAnswerCreate,
-    current_user: User = Depends(get_current_active_user),
+    workspace_id: uuid.UUID,
+    quiz_set_id: uuid.UUID,
+    attempt_id: uuid.UUID,
+    body: QuizAttemptAnswerCreate,
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+    _: Workspace = Depends(get_workspace),
 ):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
     result = await db.execute(
         select(QuizAttempt).where(
             QuizAttempt.id == attempt_id,
+            QuizAttempt.quiz_set_id == quiz_set_id,
             QuizAttempt.user_id == current_user.id,
         )
     )
     attempt = result.scalar_one_or_none()
     if attempt is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attempt not found")
-    answer = QuizAttemptAnswer(attempt_id=attempt_id, **payload.model_dump())
+
+    # Auto-grade multiple choice
+    is_correct = None
+    if body.selected_option_id:
+        opt = await db.get(QuizOption, body.selected_option_id)
+        if opt:
+            is_correct = opt.is_correct
+
+    answer = QuizAttemptAnswer(
+        attempt_id=attempt_id,
+        question_id=body.question_id,
+        selected_option_id=body.selected_option_id,
+        free_text_answer=body.free_text_answer,
+        is_correct=is_correct,
+    )
     db.add(answer)
     await db.commit()
     await db.refresh(answer)
     return answer
-
-
-@router.get("/{quiz_set_id}/attempts/{attempt_id}/answers", response_model=list[QuizAttemptAnswerResponse])
-async def list_answers(
-    quiz_set_id: UUID,
-    attempt_id: UUID,
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-):
-    await _get_owned_quiz_set(quiz_set_id, current_user, db)
-    result = await db.execute(
-        select(QuizAttemptAnswer).where(QuizAttemptAnswer.attempt_id == attempt_id)
-    )
-    return result.scalars().all()

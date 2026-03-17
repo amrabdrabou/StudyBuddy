@@ -1,37 +1,46 @@
-"""Pydantic schemas for micro-goals set within a study session."""
+"""Pydantic v2 schemas for MicroGoal."""
+from __future__ import annotations
+
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
-from pydantic import BaseModel, ConfigDict
+
+from pydantic import BaseModel, Field, field_validator
+
+MICRO_GOAL_STATUSES = {"suggested", "pending", "in_progress", "completed", "skipped"}
 
 
-class MicroGoalBase(BaseModel):
-    title: str
+class MicroGoalCreate(BaseModel):
+    title: str = Field(..., min_length=1, max_length=300)
     description: Optional[str] = None
-    estimated_minutes: Optional[int] = None
+    deadline: Optional[date] = None
     order_index: int = 0
-    status: str = "pending"
-    source: str = "ai"
-
-
-class MicroGoalCreate(MicroGoalBase):
-    session_id: uuid.UUID
 
 
 class MicroGoalUpdate(BaseModel):
-    title: Optional[str] = None
+    title: Optional[str] = Field(None, min_length=1, max_length=300)
     description: Optional[str] = None
-    estimated_minutes: Optional[int] = None
+    status: Optional[str] = None
+    deadline: Optional[date] = None
     order_index: Optional[int] = None
-    status: Optional[str] = None  # pending | in_progress | completed | skipped
-    completed_at: Optional[datetime] = None
+
+    @field_validator("status")
+    @classmethod
+    def validate_status(cls, v: Optional[str]) -> Optional[str]:
+        if v is not None and v not in MICRO_GOAL_STATUSES:
+            raise ValueError(f"status must be one of {MICRO_GOAL_STATUSES}")
+        return v
 
 
-class MicroGoalResponse(MicroGoalBase):
-    model_config = ConfigDict(from_attributes=True)
-
+class MicroGoalResponse(BaseModel):
     id: uuid.UUID
-    session_id: uuid.UUID
-    completed_at: Optional[datetime] = None
+    workspace_id: uuid.UUID
+    title: str
+    description: Optional[str]
+    status: str
+    deadline: Optional[date]
+    order_index: int
     created_at: datetime
     updated_at: datetime
+
+    model_config = {"from_attributes": True}

@@ -1,50 +1,46 @@
-import { useState } from "react";
-import type { MainDashboard, UserProfile } from "../api/dashboard";
-import { updateProfile, getToken } from "../api/auth";
+import { useState, useEffect } from "react";
+import { getMe, getToken, updateProfile, type UserResponse } from "../api/auth";
 
-interface SettingsSectionProps {
-    dashMain: MainDashboard | null;
-    userProfile: UserProfile | null;
-}
+export default function SettingsSection() {
+    const [user, setUser] = useState<UserResponse | null>(null);
 
-export default function SettingsSection({ dashMain, userProfile }: SettingsSectionProps) {
-    // Prefer the fresh /auth/me profile; fall back to the dashboard aggregate.
-    const displayName = userProfile
-        ? [userProfile.first_name, userProfile.last_name].filter(Boolean).join(" ")
-        : dashMain?.user.full_name ?? "";
-    const displayUsername = userProfile?.username ?? dashMain?.user.username ?? "";
-    const displayEmail = userProfile?.email ?? dashMain?.user.email ?? "";
-    const displayProvider = userProfile?.auth_provider ?? dashMain?.user.auth_provider ?? "local";
-    const avatarLetter = (displayName || displayUsername || displayEmail || "U")
-        .charAt(0)
-        .toUpperCase();
+    useEffect(() => {
+        const token = getToken();
+        if (token) getMe(token).then(setUser).catch(() => {});
+    }, []);
 
-    // ── Editable profile state ────────────────────────────────────────────────
-    const [firstName, setFirstName] = useState(userProfile?.first_name ?? "");
-    const [lastName, setLastName] = useState(userProfile?.last_name ?? "");
+    const displayName = user ? [user.first_name, user.last_name].filter(Boolean).join(" ") : "";
+    const displayUsername = user?.username ?? "";
+    const displayEmail = user?.email ?? "";
+    const avatarLetter = (displayName || displayUsername || displayEmail || "U").charAt(0).toUpperCase();
+
+    const [firstName, setFirstName] = useState("");
+    const [lastName, setLastName] = useState("");
     const [saving, setSaving] = useState(false);
     const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
     const [saveError, setSaveError] = useState("");
 
+    useEffect(() => {
+        if (user) {
+            setFirstName(user.first_name ?? "");
+            setLastName(user.last_name ?? "");
+        }
+    }, [user]);
+
     const isDirty =
-        firstName !== (userProfile?.first_name ?? "") ||
-        lastName !== (userProfile?.last_name ?? "");
+        firstName !== (user?.first_name ?? "") ||
+        lastName !== (user?.last_name ?? "");
 
     async function handleSave() {
         const token = getToken();
-        if (!token) {
-            setSaveStatus("error");
-            setSaveError("Not authenticated. Please log in again.");
-            return;
-        }
-        setSaving(true);
-        setSaveStatus("idle");
-        setSaveError("");
+        if (!token) { setSaveStatus("error"); setSaveError("Not authenticated."); return; }
+        setSaving(true); setSaveStatus("idle"); setSaveError("");
         try {
-            await updateProfile(token, {
+            const updated = await updateProfile(token, {
                 first_name: firstName.trim() || undefined,
                 last_name: lastName.trim() || undefined,
             });
+            setUser(updated);
             setSaveStatus("success");
             setTimeout(() => setSaveStatus("idle"), 3000);
         } catch (err) {
@@ -57,7 +53,6 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
 
     return (
         <div className="flex flex-col gap-10 pb-16">
-            {/* Header */}
             <div>
                 <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800/50 border border-slate-700/50 mb-4">
                     <span className="w-2 h-2 rounded-full bg-violet-400 animate-pulse" />
@@ -74,12 +69,9 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                 </p>
             </div>
 
-            {/* Grid Layout */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-
                 {/* Account Profile Card */}
-                <div className="bg-white/[0.02] border border-white/[0.05] rounded-3xl p-8 backdrop-blur-xl
-                                shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
+                <div className="bg-white/[0.02] border border-white/[0.05] rounded-3xl p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.2)]">
                     <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                         <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -93,7 +85,7 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                         </div>
                         <div>
                             <p className="text-2xl font-bold text-white">
-                                {displayName || displayUsername || "Scholar Worker"}
+                                {displayName || displayUsername || "Scholar"}
                             </p>
                             {displayUsername && (
                                 <p className="text-indigo-400 font-medium">@{displayUsername}</p>
@@ -102,50 +94,34 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                     </div>
 
                     <div className="space-y-4">
-                        {/* Email — read-only (requires verification flow to change) */}
                         <div>
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                Email Address
-                            </label>
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Email Address</label>
                             <div className="mt-1 px-4 py-3 bg-white/[0.03] border border-white/10 rounded-xl text-gray-400 flex items-center justify-between">
                                 <span>{displayEmail || "No email provided"}</span>
                                 <span className="text-[10px] text-gray-600 uppercase tracking-widest ml-3">read-only</span>
                             </div>
                         </div>
 
-                        {/* First Name */}
                         <div>
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                First Name
-                            </label>
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">First Name</label>
                             <input
-                                type="text"
-                                value={firstName}
+                                type="text" value={firstName}
                                 onChange={e => { setFirstName(e.target.value); setSaveStatus("idle"); }}
                                 placeholder="Your first name"
-                                className="mt-1 w-full px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white
-                                           placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.08]
-                                           transition-colors"
+                                className="mt-1 w-full px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.08] transition-colors"
                             />
                         </div>
 
-                        {/* Last Name */}
                         <div>
-                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                                Last Name
-                            </label>
+                            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Last Name</label>
                             <input
-                                type="text"
-                                value={lastName}
+                                type="text" value={lastName}
                                 onChange={e => { setLastName(e.target.value); setSaveStatus("idle"); }}
                                 placeholder="Your last name"
-                                className="mt-1 w-full px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white
-                                           placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.08]
-                                           transition-colors"
+                                className="mt-1 w-full px-4 py-3 bg-white/[0.05] border border-white/10 rounded-xl text-white placeholder-gray-600 focus:outline-none focus:border-indigo-500/60 focus:bg-white/[0.08] transition-colors"
                             />
                         </div>
 
-                        {/* Save feedback */}
                         {saveStatus === "success" && (
                             <div className="flex items-center gap-2 px-4 py-2.5 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 text-sm">
                                 <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -163,15 +139,8 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                             </div>
                         )}
 
-                        {/* Save button */}
-                        <button
-                            onClick={handleSave}
-                            disabled={!isDirty || saving}
-                            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700
-                                       text-white font-semibold rounded-xl transition-colors
-                                       disabled:opacity-40 disabled:cursor-not-allowed
-                                       flex items-center justify-center gap-2"
-                        >
+                        <button onClick={handleSave} disabled={!isDirty || saving}
+                            className="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold rounded-xl transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                             {saving ? (
                                 <>
                                     <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -180,17 +149,13 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                                     </svg>
                                     Saving…
                                 </>
-                            ) : (
-                                "Save Changes"
-                            )}
+                            ) : "Save Changes"}
                         </button>
                     </div>
                 </div>
 
-                {/* Vertical Stack for smaller cards */}
                 <div className="flex flex-col gap-6">
-
-                    {/* Authentication & Security Card */}
+                    {/* Security Card */}
                     <div className="bg-white/[0.02] border border-white/[0.05] rounded-3xl p-8 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.2)] flex-1">
                         <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                             <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -198,18 +163,7 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                             </svg>
                             Authentication & Security
                         </h3>
-
                         <div className="space-y-6">
-                            <div>
-                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Login Provider</label>
-                                <div className="mt-2 flex items-center gap-3">
-                                    <div className="px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-lg text-sm font-medium capitalize">
-                                        {displayProvider} Account
-                                    </div>
-                                    <span className="text-sm text-gray-400">Securely verified</span>
-                                </div>
-                            </div>
-
                             <div className="pt-4 border-t border-white/5">
                                 <button disabled className="w-full py-3 px-4 bg-white/5 hover:bg-white/10 text-white font-medium rounded-xl transition-colors border border-white/10 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2">
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -224,10 +178,9 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                         </div>
                     </div>
 
-                    {/* Study Preferences Card (Read Only placeholder) */}
+                    {/* Study Preferences placeholder */}
                     <div className="bg-gradient-to-br from-indigo-900/40 to-slate-900/80 border border-indigo-500/20 rounded-3xl p-8 backdrop-blur-xl shadow-lg relative overflow-hidden flex-1">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-2xl rounded-full translate-x-10 -translate-y-10"></div>
-
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/10 blur-2xl rounded-full translate-x-10 -translate-y-10" />
                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-3">
                             <svg className="w-6 h-6 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -237,7 +190,6 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                         <p className="text-sm text-indigo-200/80 mb-6">
                             Future updates will allow you to customize your daily goals and preferred study hours here.
                         </p>
-
                         <div className="flex items-center justify-between p-4 bg-black/20 rounded-xl border border-white/5">
                             <div>
                                 <p className="text-white font-medium">Daily Goal</p>
@@ -248,7 +200,6 @@ export default function SettingsSection({ dashMain, userProfile }: SettingsSecti
                             </div>
                         </div>
                     </div>
-
                 </div>
             </div>
         </div>

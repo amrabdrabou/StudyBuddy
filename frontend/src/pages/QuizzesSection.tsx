@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import ErrorBanner from "../components/ui/ErrorBanner";
+import SkeletonGrid from "../components/ui/SkeletonGrid";
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1";
 
@@ -254,16 +256,10 @@ export default function QuizzesSection() {
         </div>
       )}
 
-      {error && (
-        <div className="rounded-2xl bg-red-500/10 border border-red-400/20 px-5 py-4 text-sm text-red-300 flex items-center justify-between">
-          {error}<button onClick={() => setError(null)} className="text-red-400 hover:text-red-200 ml-4">✕</button>
-        </div>
-      )}
+      {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => <div key={i} className="h-52 bg-white/[0.04] rounded-2xl animate-pulse" />)}
-        </div>
+        <SkeletonGrid cols={3} count={6} height="h-52" />
       ) : quizSets.length === 0 ? (
         <div className="flex flex-col items-center gap-6 py-32 text-center">
           <div className="w-20 h-20 rounded-2xl bg-amber-500/10 border border-amber-400/15 flex items-center justify-center">

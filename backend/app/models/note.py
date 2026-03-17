@@ -1,44 +1,65 @@
-"""SQLAlchemy ORM model for user-created study notes."""
+"""Note model — a user-written note at subject, workspace, or session level."""
 from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_setup import Base
 
 if TYPE_CHECKING:
     from app.models.user import User
-    from app.models.study_subject import StudySubject
-    from app.models.note_tag import NoteTag
+    from app.models.subject import Subject
+    from app.models.workspace import Workspace
+    from app.models.session import Session
 
 
 class Note(Base):
     """
-    Represents a rich-text study note created by the user.
-    Notes can be solitary or linked to a broader study subject.
+    A note can be written at three levels:
+      - Subject level  : subject_id set, workspace_id null, session_id null
+      - Workspace level: subject_id set, workspace_id set,  session_id null
+      - Session level  : subject_id set, workspace_id set,  session_id set
+
+    subject_id is ALWAYS populated so a single query can fetch all notes
+    for a subject regardless of where they were written.
     """
     __tablename__ = "notes"
 
-    # Direct owner — enables fast authorization and filtering without complex joins
     user_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    # Optional grouping under a specific subject
-    study_subject_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        ForeignKey("study_subjects.id", ondelete="SET NULL"), nullable=True, index=True
+    # Always set — the subject this note ultimately belongs to
+    subject_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("subjects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
-    
-    title: Mapped[str] = mapped_column(String, nullable=False)
-    
-    # Rich text content, frequently stored as Markdown or HTML
-    content: Mapped[Optional[str]] = mapped_column(String, nullable=True)
-    
-    # Keeps main views clean by hiding deleted/archived notes
-    is_archived: Mapped[bool] = mapped_column(Boolean, default=False)
+    # Set when the note was written inside a workspace
+    workspace_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+    # Set when the note was written during a session
+    session_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("sessions.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
+    title: Mapped[Optional[str]] = mapped_column(String(500), nullable=True)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
@@ -47,10 +68,15 @@ class Note(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    user: Mapped["User"] = relationship("User", back_populates="notes", lazy="selectin")
-    study_subject: Mapped[Optional["StudySubject"]] = relationship(
-        "StudySubject", back_populates="notes", lazy="selectin"
+    # ── Relationships ──────────────────────────────────────────────────────────
+    user: Mapped["User"] = relationship("User", back_populates="notes", lazy="noload")
+    subject: Mapped["Subject"] = relationship("Subject", back_populates="notes", lazy="noload")
+    workspace: Mapped[Optional["Workspace"]] = relationship(
+        "Workspace", back_populates="notes", lazy="noload"
     )
-    note_tags: Mapped[List["NoteTag"]] = relationship(
-        "NoteTag", back_populates="note", cascade="all, delete-orphan", lazy="selectin"
+    session: Mapped[Optional["Session"]] = relationship(
+        "Session", back_populates="notes", lazy="noload"
     )
+
+    def __repr__(self) -> str:
+        return f"<Note {self.title!r}>"

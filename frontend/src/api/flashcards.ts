@@ -2,17 +2,11 @@ import { authFetch } from "./client";
 
 export interface FlashcardDeck {
   id: string;
-  user_id: string;
+  workspace_id: string;
   title: string;
   description: string | null;
   color_hex: string | null;
   icon: string | null;
-  is_public: boolean;
-  is_archived: boolean;
-  study_subject_id: string | null;
-  total_flashcards: number;
-  mastered_flashcards: number;
-  last_studied_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -23,96 +17,82 @@ export interface Flashcard {
   front_content: string;
   back_content: string;
   hint: string | null;
-  explanation: string | null;
-  difficulty: number | null;
-  card_order: number | null;
-  interval_days: number | null;
-  repetitions: number | null;
-  next_review_date: string | null;
+  order_index: number;
+  interval_days: number;
+  repetitions: number;
+  next_review_at: string | null;
   last_reviewed_at: string | null;
-  total_reviews: number;
-  successful_reviews: number;
   is_mastered: boolean;
-  is_archived: boolean;
   created_at: string;
   updated_at: string;
 }
 
-// ── Decks ──────────────────────────────────────────────────────────────────────
+// ── Decks ─────────────────────────────────────────────────────────────────────
 
-export async function getDecks(params?: { study_subject_id?: string; is_archived?: boolean }): Promise<FlashcardDeck[]> {
-  const q = new URLSearchParams();
-  if (params?.study_subject_id) q.set("study_subject_id", params.study_subject_id);
-  if (params?.is_archived !== undefined) q.set("is_archived", String(params.is_archived));
-  const res = await authFetch(`/flashcard-decks/?${q}`);
+export async function getDecks(workspaceId: string): Promise<FlashcardDeck[]> {
+  const res = await authFetch(`/workspaces/${workspaceId}/flashcard-decks/`);
   return res.json();
 }
 
-export async function createDeck(data: {
-  title: string;
-  description?: string;
-  color_hex?: string;
-  study_subject_id?: string | null;
-}): Promise<FlashcardDeck> {
-  const res = await authFetch("/flashcard-decks/", {
+export async function createDeck(
+  workspaceId: string,
+  data: { title: string; description?: string; color_hex?: string; icon?: string }
+): Promise<FlashcardDeck> {
+  const res = await authFetch(`/workspaces/${workspaceId}/flashcard-decks/`, {
     method: "POST",
     body: JSON.stringify(data),
   });
   return res.json();
 }
 
-export async function updateDeck(id: string, data: Partial<{
-  title: string;
-  description: string | null;
-  color_hex: string | null;
-  is_archived: boolean;
-}>): Promise<FlashcardDeck> {
-  const res = await authFetch(`/flashcard-decks/${id}`, {
+export async function updateDeck(
+  workspaceId: string,
+  deckId: string,
+  data: { title?: string; description?: string; color_hex?: string; icon?: string }
+): Promise<FlashcardDeck> {
+  const res = await authFetch(`/workspaces/${workspaceId}/flashcard-decks/${deckId}`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
   return res.json();
 }
 
-export async function deleteDeck(id: string): Promise<void> {
-  await authFetch(`/flashcard-decks/${id}`, { method: "DELETE" });
+export async function deleteDeck(workspaceId: string, deckId: string): Promise<void> {
+  await authFetch(`/workspaces/${workspaceId}/flashcard-decks/${deckId}`, { method: "DELETE" });
 }
 
-// ── Cards ──────────────────────────────────────────────────────────────────────
+// ── Cards ─────────────────────────────────────────────────────────────────────
 
-export async function getCards(deck_id: string): Promise<Flashcard[]> {
-  const res = await authFetch(`/flashcards/?deck_id=${deck_id}`);
+export async function getCards(workspaceId: string, deckId: string): Promise<Flashcard[]> {
+  const res = await authFetch(`/workspaces/${workspaceId}/flashcard-decks/${deckId}/cards`);
   return res.json();
 }
 
-export async function createCard(data: {
-  deck_id: string;
-  front_content: string;
-  back_content: string;
-  hint?: string;
-  explanation?: string;
-  difficulty?: number;
-}): Promise<Flashcard> {
-  const res = await authFetch("/flashcards/", {
+export async function createCard(
+  workspaceId: string,
+  deckId: string,
+  data: { front_content: string; back_content: string; hint?: string; order_index?: number }
+): Promise<Flashcard> {
+  const res = await authFetch(`/workspaces/${workspaceId}/flashcard-decks/${deckId}/cards`, {
     method: "POST",
     body: JSON.stringify(data),
   });
   return res.json();
 }
 
-export async function updateCard(id: string, data: Partial<{
-  front_content: string;
-  back_content: string;
-  hint: string | null;
-  is_mastered: boolean;
-}>): Promise<Flashcard> {
-  const res = await authFetch(`/flashcards/${id}`, {
+export async function updateCard(
+  workspaceId: string,
+  deckId: string,
+  cardId: string,
+  data: { front_content?: string; back_content?: string; hint?: string; order_index?: number; is_mastered?: boolean }
+): Promise<Flashcard> {
+  const res = await authFetch(`/workspaces/${workspaceId}/flashcard-decks/${deckId}/cards/${cardId}`, {
     method: "PATCH",
     body: JSON.stringify(data),
   });
   return res.json();
 }
 
-export async function deleteCard(id: string): Promise<void> {
-  await authFetch(`/flashcards/${id}`, { method: "DELETE" });
+export async function deleteCard(workspaceId: string, deckId: string, cardId: string): Promise<void> {
+  await authFetch(`/workspaces/${workspaceId}/flashcard-decks/${deckId}/cards/${cardId}`, { method: "DELETE" });
 }

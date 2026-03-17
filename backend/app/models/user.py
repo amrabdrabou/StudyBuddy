@@ -12,19 +12,16 @@ from app.core.db_setup import Base
 
 if TYPE_CHECKING:
     from app.models.token import Token
-    from app.models.tag import Tag
-    from app.models.study_subject import StudySubject
-    from app.models.note import Note
+    from app.models.subject import Subject
+    from app.models.big_goal import BigGoal
+    from app.models.workspace import Workspace
     from app.models.document import Document
-    from app.models.flashcard_deck import FlashcardDeck
-    from app.models.study_session import StudySession
-    from app.models.study_group import StudyGroup
-    from app.models.study_group_member import StudyGroupMember
-    from app.models.shared_resource import SharedResource
-    from app.models.learning_goal import LearningGoal
-    from app.models.timeline_event import TimelineEvent
-    from app.models.ai_recommendation import AiRecommendation
-    from app.models.progress_snapshot import ProgressSnapshot
+    from app.models.session import Session
+    from app.models.ai_job import AIJob
+    from app.models.ai_chat_message import AIChatMessage
+    from app.models.quiz_set import QuizSet
+    from app.models.quiz_attempt import QuizAttempt
+    from app.models.note import Note
 
 
 class User(Base):
@@ -80,51 +77,37 @@ class User(Base):
         "Token", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
 
-    # ── Direct ownership (user_id on every table) ─────────────────────────────
-    tags: Mapped[List["Tag"]] = relationship(
-        "Tag", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    # ── Subjects & Goals ──────────────────────────────────────────────────────
+    subjects: Mapped[List["Subject"]] = relationship(
+        "Subject", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
-    study_subjects: Mapped[List["StudySubject"]] = relationship(
-        "StudySubject", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    big_goals: Mapped[List["BigGoal"]] = relationship(
+        "BigGoal", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    workspaces: Mapped[List["Workspace"]] = relationship(
+        "Workspace", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    documents: Mapped[List["Document"]] = relationship(
+        "Document", back_populates="uploaded_by",
+        foreign_keys="[Document.uploaded_by_user_id]", lazy="noload"
+    )
+    sessions: Mapped[List["Session"]] = relationship(
+        "Session", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    ai_jobs: Mapped[List["AIJob"]] = relationship(
+        "AIJob", back_populates="requested_by",
+        foreign_keys="[AIJob.requested_by_user_id]", lazy="noload"
+    )
+    ai_chat_messages: Mapped[List["AIChatMessage"]] = relationship(
+        "AIChatMessage", back_populates="user", cascade="all, delete-orphan", lazy="noload"
+    )
+    quiz_sets: Mapped[List["QuizSet"]] = relationship(
+        "QuizSet", back_populates="created_by",
+        foreign_keys="[QuizSet.created_by_user_id]", lazy="noload"
+    )
+    quiz_attempts: Mapped[List["QuizAttempt"]] = relationship(
+        "QuizAttempt", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
     notes: Mapped[List["Note"]] = relationship(
         "Note", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    documents: Mapped[List["Document"]] = relationship(
-        "Document", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    flashcard_decks: Mapped[List["FlashcardDeck"]] = relationship(
-        "FlashcardDeck", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    study_sessions: Mapped[List["StudySession"]] = relationship(
-        "StudySession", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    # ── Long-term goals ───────────────────────────────────────────────────────
-    learning_goals: Mapped[List["LearningGoal"]] = relationship(
-        "LearningGoal", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-
-    # ── Timeline & AI ─────────────────────────────────────────────────────────
-    timeline_events: Mapped[List["TimelineEvent"]] = relationship(
-        "TimelineEvent", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    ai_recommendations: Mapped[List["AiRecommendation"]] = relationship(
-        "AiRecommendation", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    progress_snapshots: Mapped[List["ProgressSnapshot"]] = relationship(
-        "ProgressSnapshot", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-
-    # ── Groups ────────────────────────────────────────────────────────────────
-    created_study_groups: Mapped[List["StudyGroup"]] = relationship(
-        "StudyGroup",
-        back_populates="creator",
-        foreign_keys="[StudyGroup.creator_id]",
-        lazy="noload",
-    )
-    study_group_members: Mapped[List["StudyGroupMember"]] = relationship(
-        "StudyGroupMember", back_populates="user", cascade="all, delete-orphan", lazy="noload"
-    )
-    shared_resources: Mapped[List["SharedResource"]] = relationship(
-        "SharedResource", back_populates="shared_by_user", cascade="all, delete-orphan", lazy="noload"
     )

@@ -20,8 +20,8 @@ class Settings(BaseSettings):
     # Must be set via environment variable — never use default in non-dev
     secret_key: str = _INSECURE_KEY
 
-    # Short-lived access tokens; refresh tokens carry the long session
-    access_token_expire_minutes: int = 15
+    # Access tokens valid for 3 days (3 * 24 * 60 = 4320 minutes)
+    access_token_expire_minutes: int = 4320
     refresh_token_expire_days: int = 7
     algorithm: str = "HS256"
 

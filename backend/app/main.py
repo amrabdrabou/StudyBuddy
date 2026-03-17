@@ -16,30 +16,19 @@ from app.core.db_setup import Base, engine
 from app.core.migrations import run_pre_migrations, run_post_migrations
 from app.api.v1.routers.auth.auth import router as auth_router
 from app.api.v1.routers.user import router as user_router
-from app.api.v1.routers.notes import router as notes_router
 from app.api.v1.routers.subjects import router as subjects_router
-from app.api.v1.routers.sessions import router as sessions_router
-from app.api.v1.routers.session_participants import router as session_participants_router
-from app.api.v1.routers.session_documents import router as session_documents_router
-from app.api.v1.routers.document_topics import router as document_topics_router
-from app.api.v1.routers.session_topics import router as session_topics_router
-from app.api.v1.routers.micro_goals import router as micro_goals_router
-from app.api.v1.routers.session_ai_events import router as session_ai_events_router
-from app.api.v1.routers.quiz import router as quiz_router
-from app.api.v1.routers.session_reflections import router as session_reflections_router
-from app.api.v1.routers.session_recommendations import router as session_recommendations_router
-from app.api.v1.routers.learning_goals import router as learning_goals_router
-from app.api.v1.routers.quiz_sets import router as quiz_sets_router
-from app.api.v1.routers.timeline import router as timeline_router
-from app.api.v1.routers.ai_recommendations import router as ai_recommendations_router
-from app.api.v1.routers.progress import router as progress_router
-from app.api.v1.routers.dashboard import router as dashboard_router
-from app.api.v1.routers.tags import router as tags_router
+from app.api.v1.routers.big_goals import router as big_goals_router
+from app.api.v1.routers.workspaces import router as workspaces_router
 from app.api.v1.routers.documents import router as documents_router
+from app.api.v1.routers.micro_goals import router as micro_goals_router
+from app.api.v1.routers.sessions import router as sessions_router
+from app.api.v1.routers.ai_jobs import router as ai_jobs_router
+from app.api.v1.routers.ai_chat import router as ai_chat_router
 from app.api.v1.routers.flashcard_decks import router as flashcard_decks_router
-from app.api.v1.routers.flashcards import router as flashcards_router
-from app.api.v1.routers.study_groups import router as study_groups_router
-from app.api.v1.routers.document_upload import router as document_upload_router
+from app.api.v1.routers.flashcards import router as flashcard_reviews_router
+from app.api.v1.routers.quiz_sets import router as quiz_sets_router
+from app.api.v1.routers.notes import router as notes_router
+from app.api.v1.routers.dashboard import router as dashboard_router
 
 PREFIX = "/api/v1"
 
@@ -98,30 +87,19 @@ app.add_middleware(
 # ── Routers ───────────────────────────────────────────────────────────────────
 app.include_router(auth_router, prefix=PREFIX)
 app.include_router(user_router, prefix=PREFIX)
-app.include_router(notes_router, prefix=PREFIX)
 app.include_router(subjects_router, prefix=PREFIX)
-app.include_router(sessions_router, prefix=PREFIX)
-app.include_router(session_participants_router, prefix=PREFIX)
-app.include_router(session_documents_router, prefix=PREFIX)
-app.include_router(document_topics_router, prefix=PREFIX)
-app.include_router(session_topics_router, prefix=PREFIX)
-app.include_router(micro_goals_router, prefix=PREFIX)
-app.include_router(session_ai_events_router, prefix=PREFIX)
-app.include_router(quiz_router, prefix=PREFIX)
-app.include_router(session_reflections_router, prefix=PREFIX)
-app.include_router(session_recommendations_router, prefix=PREFIX)
-app.include_router(learning_goals_router, prefix=PREFIX)
-app.include_router(quiz_sets_router, prefix=PREFIX)
-app.include_router(timeline_router, prefix=PREFIX)
-app.include_router(ai_recommendations_router, prefix=PREFIX)
-app.include_router(progress_router, prefix=PREFIX)
-app.include_router(dashboard_router, prefix=PREFIX)
-app.include_router(tags_router, prefix=PREFIX)
+app.include_router(big_goals_router, prefix=PREFIX)
+app.include_router(workspaces_router, prefix=PREFIX)
 app.include_router(documents_router, prefix=PREFIX)
+app.include_router(micro_goals_router, prefix=PREFIX)
+app.include_router(sessions_router, prefix=PREFIX)
+app.include_router(ai_jobs_router, prefix=PREFIX)
+app.include_router(ai_chat_router, prefix=PREFIX)
 app.include_router(flashcard_decks_router, prefix=PREFIX)
-app.include_router(flashcards_router, prefix=PREFIX)
-app.include_router(study_groups_router, prefix=PREFIX)
-app.include_router(document_upload_router, prefix=PREFIX)
+app.include_router(flashcard_reviews_router, prefix=PREFIX)
+app.include_router(quiz_sets_router, prefix=PREFIX)
+app.include_router(notes_router, prefix=PREFIX)
+app.include_router(dashboard_router, prefix=PREFIX)
 
 
 @app.get("/health", tags=["health"])

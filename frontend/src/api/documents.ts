@@ -1,66 +1,44 @@
 import { authFetch } from "./client";
+import { getToken } from "./auth";
+import { BASE_URL } from "./client";
 
-export type ProcessingStatus = "pending" | "processing" | "completed" | "failed";
-
-export interface DocumentTag {
-  tag_id: string;
-  tag: { id: string; name: string; color_hex: string | null };
-}
+export type DocumentStatus = "uploaded" | "processing" | "ready" | "failed";
 
 export interface Document {
   id: string;
-  user_id: string;
-  title: string;
-  file_name: string;
-  file_type: string;
-  file_size_bytes: number;
-  processing_status: ProcessingStatus;
-  summary: string | null;
-  topics: string | null;
-  is_archived: boolean;
-  study_subject_id: string | null;
-  uploaded_at: string;
-  last_accessed_at: string;
-  document_tags: DocumentTag[];
+  workspace_id: string;
+  uploaded_by_user_id: string;
+  original_filename: string;
+  storage_path: string;
+  mime_type: string;
+  file_size: number;
+  status: DocumentStatus;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
-export async function getDocuments(params?: { study_subject_id?: string; is_archived?: boolean }): Promise<Document[]> {
-  const q = new URLSearchParams();
-  if (params?.study_subject_id) q.set("study_subject_id", params.study_subject_id);
-  if (params?.is_archived !== undefined) q.set("is_archived", String(params.is_archived));
-  const res = await authFetch(`/documents/?${q}`);
+export async function getDocuments(workspaceId: string): Promise<Document[]> {
+  const res = await authFetch(`/workspaces/${workspaceId}/documents/`);
   return res.json();
 }
 
-export async function createDocument(data: {
-  title: string;
-  file_name: string;
-  file_path: string;
-  file_type: string;
-  file_size_bytes: number;
-  study_subject_id?: string | null;
-  tag_ids?: string[];
-}): Promise<Document> {
-  const res = await authFetch("/documents/", {
+export async function uploadDocument(workspaceId: string, file: File): Promise<Document> {
+  const token = getToken();
+  const form = new FormData();
+  form.append("file", file);
+  const res = await fetch(`${BASE_URL}/workspaces/${workspaceId}/documents/`, {
     method: "POST",
-    body: JSON.stringify(data),
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+    body: form,
   });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.detail ?? `Upload failed: ${res.status}`);
+  }
   return res.json();
 }
 
-export async function updateDocument(id: string, data: Partial<{
-  title: string;
-  is_archived: boolean;
-  study_subject_id: string | null;
-  tag_ids: string[];
-}>): Promise<Document> {
-  const res = await authFetch(`/documents/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(data),
-  });
-  return res.json();
-}
-
-export async function deleteDocument(id: string): Promise<void> {
-  await authFetch(`/documents/${id}`, { method: "DELETE" });
+export async function deleteDocument(workspaceId: string, documentId: string): Promise<void> {
+  await authFetch(`/workspaces/${workspaceId}/documents/${documentId}`, { method: "DELETE" });
 }

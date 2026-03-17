@@ -1,46 +1,35 @@
-"""Pydantic schemas for creating, reading, and updating study notes."""
+"""Pydantic v2 schemas for Note."""
+from __future__ import annotations
+
 import uuid
 from datetime import datetime
-from typing import List, Optional
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field
-
-from app.schemas.tag import TagResponse
+from pydantic import BaseModel, Field
 
 
-class NoteTagResponse(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    note_id: uuid.UUID
-    tag_id: uuid.UUID
-    created_at: datetime
-    tag: TagResponse
-
-
-class NoteBase(BaseModel):
-    title: str = Field(min_length=1, max_length=500)
-    content: Optional[str] = Field(default=None, max_length=100_000)
-    study_subject_id: Optional[uuid.UUID] = None
-
-
-class NoteCreate(NoteBase):
-    tag_ids: List[uuid.UUID] = Field(default_factory=list, max_length=50)
+class NoteCreate(BaseModel):
+    subject_id: uuid.UUID
+    workspace_id: Optional[uuid.UUID] = None
+    session_id: Optional[uuid.UUID] = None
+    title: Optional[str] = Field(None, max_length=500)
+    content: str = Field(..., min_length=1)
 
 
 class NoteUpdate(BaseModel):
-    title: Optional[str] = Field(default=None, min_length=1, max_length=500)
-    content: Optional[str] = Field(default=None, max_length=100_000)
-    study_subject_id: Optional[uuid.UUID] = None
-    is_archived: Optional[bool] = None
-    tag_ids: Optional[List[uuid.UUID]] = Field(default=None, max_length=50)
+    title: Optional[str] = Field(None, max_length=500)
+    content: Optional[str] = Field(None, min_length=1)
 
 
-class NoteResponse(NoteBase):
-    model_config = ConfigDict(from_attributes=True)
-
+class NoteResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
-    is_archived: bool
+    subject_id: uuid.UUID
+    workspace_id: Optional[uuid.UUID]
+    session_id: Optional[uuid.UUID]
+    title: Optional[str]
+    content: str
     created_at: datetime
     updated_at: datetime
-    note_tags: List[NoteTagResponse] = []
+
+    model_config = {"from_attributes": True}

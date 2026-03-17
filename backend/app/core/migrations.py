@@ -8,11 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 PRE_CREATE: list[str] = [
-    # Document upload subsystem — new columns added to the existing documents table
-    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS stored_filename TEXT",
-    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS upload_status TEXT NOT NULL DEFAULT 'pending'",
-    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS extraction_status TEXT NOT NULL DEFAULT 'not_started'",
-    "ALTER TABLE documents ADD COLUMN IF NOT EXISTS error_message TEXT",
     # Security: token_type distinguishes access vs. refresh tokens
     "ALTER TABLE tokens ADD COLUMN IF NOT EXISTS token_type VARCHAR(10) NOT NULL DEFAULT 'access'",
 ]

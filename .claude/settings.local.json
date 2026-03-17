@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(cd D:/StudyBuddy/backend && venv/Scripts/python.exe -c \"import app.models; import app.schema; from app.main import app; print\\('OK'\\)\" 2>&1)",
-      "Bash(cd D:/StudyBuddy/backend && venv/Scripts/python.exe -c \"\nfrom app.api.v1.routers.learning_goals import router as r1\nfrom app.api.v1.routers.quiz_sets import router as r2\nfrom app.api.v1.routers.timeline import router as r3\nfrom app.api.v1.routers.ai_recommendations import router as r4\nfrom app.api.v1.routers.progress import router as r5\nfrom app.api.v1.routers.dashboard import router as r6\nfrom app.api.v1.routers.quiz import router as r7\n\nroutes = []\nfor r in [r1,r2,r3,r4,r5,r6,r7]:\n    routes.extend\\([route.path for route in r.routes]\\)\nfor p in sorted\\(routes\\):\n    print\\(p\\)\n\" 2>&1)"
+      "Bash(cd D:/StudyBuddy/backend && venv/Scripts/python.exe -c \"\nfrom app.api.v1.routers.learning_goals import router as r1\nfrom app.api.v1.routers.quiz_sets import router as r2\nfrom app.api.v1.routers.timeline import router as r3\nfrom app.api.v1.routers.ai_recommendations import router as r4\nfrom app.api.v1.routers.progress import router as r5\nfrom app.api.v1.routers.dashboard import router as r6\nfrom app.api.v1.routers.quiz import router as r7\n\nroutes = []\nfor r in [r1,r2,r3,r4,r5,r6,r7]:\n    routes.extend\\([route.path for route in r.routes]\\)\nfor p in sorted\\(routes\\):\n    print\\(p\\)\n\" 2>&1)",
+      "Bash(cd:*)"
     ]
   }
 }

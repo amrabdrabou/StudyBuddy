@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM model for an individual quiz question belonging to a quiz set."""
+"""QuizQuestion model — one question inside a QuizSet."""
 from __future__ import annotations
 
 import uuid
@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, SmallInteger, String, Text, func
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_setup import Base
@@ -13,52 +14,37 @@ from app.core.db_setup import Base
 if TYPE_CHECKING:
     from app.models.quiz_set import QuizSet
     from app.models.quiz_option import QuizOption
-    from app.models.document_chunk import DocumentChunk
 
 
 class QuizQuestion(Base):
-    """
-    An individual question within a QuizSet.
-    Supports multiple formats (multiple choice, true/false, short answer).
-    For multiple choice questions, the possible answers are stored in QuizOption.
-    """
     __tablename__ = "quiz_questions"
 
     quiz_set_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("quiz_sets.id", ondelete="CASCADE"), nullable=False, index=True
-    )
-    # nullable — lets us trace backward to exactly which chunk of text the AI used to generate this question
-    source_chunk_id: Mapped[Optional[uuid.UUID]] = mapped_column(
-        ForeignKey("document_chunks.id", ondelete="SET NULL"), nullable=True
+        UUID(as_uuid=True),
+        ForeignKey("quiz_sets.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
     )
 
     question_text: Mapped[str] = mapped_column(Text, nullable=False)
-    
-    # Format of the question: multiple_choice | true_false | short_answer
-    question_type: Mapped[str] = mapped_column(String, nullable=False, default="multiple_choice")
-    
-    # Used directly for true_false and short_answer.
-    # Always null for multiple_choice (correct option is marked via QuizOption.is_correct)
+    # multiple_choice | true_false | short_answer
+    question_type: Mapped[str] = mapped_column(String(30), default="multiple_choice", nullable=False)
+    # Used for true_false / short_answer; null for multiple_choice
     correct_answer: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    
-    # Why this is the correct answer. Shown to the user after they submit their response.
     explanation: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    
-    # Assessed difficulty: easy | medium | hard
-    difficulty: Mapped[str] = mapped_column(String, nullable=False, default="medium")
-    order_index: Mapped[int] = mapped_column(SmallInteger, nullable=False, default=0)
-    ai_generated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # easy | medium | hard
+    difficulty: Mapped[str] = mapped_column(String(10), default="medium", nullable=False)
+    order_index: Mapped[int] = mapped_column(SmallInteger, default=0, nullable=False)
+    ai_generated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
 
+    # ── Relationships ──────────────────────────────────────────────────────────
     quiz_set: Mapped["QuizSet"] = relationship(
-        "QuizSet", back_populates="questions", lazy="selectin"
+        "QuizSet", back_populates="questions", lazy="noload"
     )
     options: Mapped[List["QuizOption"]] = relationship(
         "QuizOption", back_populates="question", cascade="all, delete-orphan", lazy="selectin"
-    )
-    source_chunk: Mapped[Optional["DocumentChunk"]] = relationship(
-        "DocumentChunk", lazy="noload"
     )
