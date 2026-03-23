@@ -17,12 +17,39 @@ export interface BigGoal {
   deadline: string | null;
   progress_pct: number;
   subject_ids: string[];
+  cover_color: string;
+  icon: string | null;
+  pinned: boolean;
+  archived: boolean;
+  display_order: number;
   created_at: string;
   updated_at: string;
 }
 
-export async function getBigGoals(): Promise<BigGoal[]> {
-  const res = await authFetch("/big-goals/");
+export interface SubjectSummary {
+  id: string;
+  name: string;
+  color_hex: string | null;
+  icon: string | null;
+  workspace_count: number;
+}
+
+export interface BigGoalDetail extends BigGoal {
+  subjects_detail: SubjectSummary[];
+  workspace_count: number;
+  document_count: number;
+  note_count: number;
+}
+
+export async function getBigGoals(params?: { archived?: boolean }): Promise<BigGoal[]> {
+  const q = new URLSearchParams();
+  if (params?.archived !== undefined) q.set("archived", String(params.archived));
+  const res = await authFetch(`/big-goals/${q.size ? `?${q}` : ""}`);
+  return res.json();
+}
+
+export async function getBigGoalDetail(id: string): Promise<BigGoalDetail> {
+  const res = await authFetch(`/big-goals/${id}/detail`);
   return res.json();
 }
 
@@ -31,6 +58,9 @@ export async function createBigGoal(data: {
   description?: string;
   deadline?: string;
   subject_ids: string[];
+  cover_color?: string;
+  icon?: string;
+  pinned?: boolean;
 }): Promise<BigGoal> {
   const res = await authFetch("/big-goals/", {
     method: "POST",
@@ -47,6 +77,11 @@ export async function updateBigGoal(
     status?: BigGoalStatus;
     deadline?: string | null;
     subject_ids?: string[];
+    cover_color?: string;
+    icon?: string | null;
+    pinned?: boolean;
+    archived?: boolean;
+    display_order?: number;
   }
 ): Promise<BigGoal> {
   const res = await authFetch(`/big-goals/${id}`, {

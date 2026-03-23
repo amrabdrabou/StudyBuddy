@@ -39,6 +39,18 @@ export async function uploadDocument(workspaceId: string, file: File): Promise<D
   return res.json();
 }
 
+export interface DocumentContent {
+  raw_text: string | null;
+  summary: string | null;
+  word_count: number | null;
+  page_count: number | null;
+}
+
+export async function getDocumentContent(workspaceId: string, documentId: string): Promise<DocumentContent> {
+  const res = await authFetch(`/workspaces/${workspaceId}/documents/${documentId}/content`);
+  return res.json();
+}
+
 export async function deleteDocument(workspaceId: string, documentId: string): Promise<void> {
   await authFetch(`/workspaces/${workspaceId}/documents/${documentId}`, { method: "DELETE" });
 }

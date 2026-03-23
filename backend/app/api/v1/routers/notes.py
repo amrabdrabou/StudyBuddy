@@ -115,6 +115,7 @@ async def create_note(
         session_id=body.session_id,
         title=body.title,
         content=body.content,
+        canvas_enabled=body.canvas_enabled,
     )
     db.add(note)
     await db.commit()

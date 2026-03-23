@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func as sa_func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import get_current_active_user
@@ -12,9 +12,12 @@ from app.api.v1.deps import apply_updates, get_or_404
 from app.core.db_setup import get_db
 from app.models.big_goal import BigGoal
 from app.models.big_goal_subject import BigGoalSubject
+from app.models.document import Document
+from app.models.note import Note
 from app.models.subject import Subject
 from app.models.user import User
-from app.schemas.big_goal import BigGoalCreate, BigGoalResponse, BigGoalUpdate
+from app.models.workspace import Workspace
+from app.schemas.big_goal import BigGoalCreate, BigGoalDetailResponse, BigGoalResponse, BigGoalUpdate, SubjectSummary
 
 router = APIRouter(prefix="/big-goals", tags=["big-goals"])
 
@@ -52,13 +55,14 @@ async def _sync_subjects(
 
 @router.get("/", response_model=list[BigGoalResponse])
 async def list_big_goals(
+    archived: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
 ):
     result = await db.execute(
         select(BigGoal)
-        .where(BigGoal.user_id == current_user.id)
-        .order_by(BigGoal.created_at.desc())
+        .where(BigGoal.user_id == current_user.id, BigGoal.archived == archived)
+        .order_by(BigGoal.pinned.desc(), BigGoal.display_order, BigGoal.created_at.desc())
     )
     goals = result.scalars().all()
     return [BigGoalResponse.from_orm_with_subjects(g) for g in goals]
@@ -77,6 +81,9 @@ async def create_big_goal(
         title=body.title,
         description=body.description,
         deadline=body.deadline,
+        cover_color=body.cover_color,
+        icon=body.icon,
+        pinned=body.pinned,
     )
     db.add(goal)
     await db.flush()
@@ -98,6 +105,75 @@ async def get_big_goal(
     goal = await get_or_404(db, BigGoal, "BigGoal not found",
         BigGoal.id == goal_id, BigGoal.user_id == current_user.id)
     return BigGoalResponse.from_orm_with_subjects(goal)
+
+
+@router.get("/{goal_id}/detail", response_model=BigGoalDetailResponse)
+async def get_big_goal_detail(
+    goal_id: uuid.UUID,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    goal = await get_or_404(db, BigGoal, "BigGoal not found",
+        BigGoal.id == goal_id, BigGoal.user_id == current_user.id)
+
+    subject_ids = [bgs.subject_id for bgs in (goal.big_goal_subjects or [])]
+    base = BigGoalResponse.from_orm_with_subjects(goal)
+
+    if not subject_ids:
+        return BigGoalDetailResponse(**base.model_dump())
+
+    # Subjects with workspace counts
+    subjs_result = await db.execute(
+        select(Subject).where(Subject.id.in_(subject_ids), Subject.user_id == current_user.id)
+    )
+    subjects = subjs_result.scalars().all()
+
+    ws_counts_result = await db.execute(
+        select(Workspace.subject_id, sa_func.count(Workspace.id))
+        .where(Workspace.subject_id.in_(subject_ids))
+        .group_by(Workspace.subject_id)
+    )
+    ws_count_map: dict = {row[0]: row[1] for row in ws_counts_result.all()}
+
+    subjects_detail = [
+        SubjectSummary(
+            id=s.id,
+            name=s.name,
+            color_hex=s.color_hex,
+            icon=s.icon,
+            workspace_count=ws_count_map.get(s.id, 0),
+        )
+        for s in subjects
+    ]
+
+    # Document count across all workspaces in linked subjects
+    ws_ids_result = await db.execute(
+        select(Workspace.id).where(Workspace.subject_id.in_(subject_ids))
+    )
+    ws_ids = [row[0] for row in ws_ids_result.all()]
+
+    doc_count = 0
+    if ws_ids:
+        doc_count_result = await db.execute(
+            select(sa_func.count(Document.id)).where(Document.workspace_id.in_(ws_ids))
+        )
+        doc_count = doc_count_result.scalar() or 0
+
+    note_count_result = await db.execute(
+        select(sa_func.count(Note.id)).where(
+            Note.subject_id.in_(subject_ids),
+            Note.user_id == current_user.id,
+        )
+    )
+    note_count = note_count_result.scalar() or 0
+
+    return BigGoalDetailResponse(
+        **base.model_dump(),
+        subjects_detail=subjects_detail,
+        workspace_count=sum(ws_count_map.values()),
+        document_count=doc_count,
+        note_count=note_count,
+    )
 
 
 @router.patch("/{goal_id}", response_model=BigGoalResponse)

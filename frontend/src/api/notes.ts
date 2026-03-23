@@ -8,6 +8,7 @@ export interface Note {
   session_id: string | null;
   title: string | null;
   content: string;
+  canvas_enabled: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -31,6 +32,7 @@ export async function createNote(data: {
   session_id?: string;
   title?: string;
   content: string;
+  canvas_enabled?: boolean;
 }): Promise<Note> {
   const res = await authFetch("/notes/", {
     method: "POST",
@@ -41,7 +43,7 @@ export async function createNote(data: {
 
 export async function updateNote(
   id: string,
-  data: { title?: string; content?: string }
+  data: { title?: string; content?: string; canvas_enabled?: boolean }
 ): Promise<Note> {
   const res = await authFetch(`/notes/${id}`, {
     method: "PATCH",

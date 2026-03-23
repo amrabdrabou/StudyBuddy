@@ -37,6 +37,14 @@ export default function DocumentsSection() {
     if (workspaceId) loadDocs();
   }, [workspaceId]);
 
+  // Poll every 3s while any doc is still processing
+  useEffect(() => {
+    const pending = docs.some(d => d.status === "uploaded" || d.status === "processing");
+    if (!pending || !workspaceId) return;
+    const id = setInterval(() => loadDocs(), 3000);
+    return () => clearInterval(id);
+  }, [docs, workspaceId]);
+
   async function loadWorkspaces() {
     setLoading(true);
     try {

@@ -9,30 +9,11 @@ import { getToken, removeToken } from "./api/auth";
 
 type Page = "home" | "login" | "register" | "dashboard";
 
-type Section = "overview" | "subjects" | "workspaces" | "goals" | "settings";
-
-const sectionToPath: Record<Section, string> = {
-  overview:   "/dashboard",
-  subjects:   "/subjects",
-  workspaces: "/workspaces",
-  goals:      "/goals",
-  settings:   "/settings",
-};
-
-const pathToSection = (path: string): Section | null => {
-  if (/^\/subjects\/[0-9a-f-]{36}$/i.test(path)) return "subjects";
-  if (/^\/workspaces\/[0-9a-f-]{36}$/i.test(path)) return "workspaces";
-  for (const [section, p] of Object.entries(sectionToPath)) {
-    if (path === p) return section as Section;
-  }
-  return null;
-};
-
 const pathToPage = (path: string): Page => {
   if (path === "/login") return "login";
   if (path === "/register") return "register";
-  if (pathToSection(path) !== null) return "dashboard";
-  return "home";
+  if (path === "/" || path === "") return "home";
+  return "dashboard";
 };
 
 /** Enforce auth rules: logged-in users can't access auth/home pages; guests can't access dashboard. */
@@ -46,8 +27,6 @@ export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => !!getToken());
   const [page, setPage] = useState<Page>(() => guard(pathToPage(window.location.pathname), !!getToken()));
   const [showSplash, setShowSplash] = useState(true);
-
-  const initialSection = pathToSection(window.location.pathname) ?? "overview";
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);

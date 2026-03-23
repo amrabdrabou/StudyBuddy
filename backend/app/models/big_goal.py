@@ -5,7 +5,7 @@ import uuid
 from datetime import date, datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, Date, ForeignKey, String, Text, func
+from sqlalchemy import Boolean, DateTime, Date, ForeignKey, Integer, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,6 +38,13 @@ class BigGoal(Base):
     deadline: Mapped[Optional[date]] = mapped_column(Date, nullable=True)
     # Cached aggregate — updated by background job or on workspace progress update
     progress_pct: Mapped[int] = mapped_column(default=0, nullable=False)
+
+    # Mission card UI fields
+    cover_color: Mapped[str] = mapped_column(String(20), default="#6366f1", nullable=False)
+    icon: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    pinned: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    archived: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    display_order: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False

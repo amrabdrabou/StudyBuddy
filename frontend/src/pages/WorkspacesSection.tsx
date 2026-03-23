@@ -1,11 +1,9 @@
 import { useEffect, useState } from "react";
 import { getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace, type Workspace, type WorkspaceStatus } from "../api/workspaces";
 import { getSubjects, type Subject } from "../api/subjects";
-import { getSessions, createSession, updateSession, deleteSession, type Session } from "../api/sessions";
-import { getDocuments, uploadDocument, deleteDocument, type Document } from "../api/documents";
-import { getMicroGoals, createMicroGoal, updateMicroGoal, deleteMicroGoal, type MicroGoal } from "../api/micro_goals";
-import { getDecks, createDeck, deleteDeck, type FlashcardDeck } from "../api/flashcards";
-import { getQuizSets, createQuizSet, deleteQuizSet, type QuizSet } from "../api/quiz";
+import { getDocuments, uploadDocument, deleteDocument, getDocumentContent, type Document, type DocumentContent } from "../api/documents";
+import CanvasNoteEditor from "../components/canvas/CanvasNoteEditor";
+import DocumentCanvasViewer from "../components/canvas/DocumentCanvasViewer";
 import { getNotes, createNote, deleteNote, type Note } from "../api/notes";
 import Modal from "../components/ui/Modal";
 import { fmtDate, fmtSize } from "../components/ui/utils";
@@ -29,20 +27,22 @@ function statusColor(status: string) {
 
 // ── Tab types ─────────────────────────────────────────────────────────────────
 
-type WorkspaceTab = "micro-goals" | "sessions" | "documents" | "flashcards" | "quizzes" | "notes";
+type WorkspaceTab = "documents" | "summary" | "ai-chat" | "micro-goals" | "sessions" | "flashcards" | "quizzes" | "timeline";
 
 const tabs: { id: WorkspaceTab; label: string }[] = [
-  { id: "micro-goals", label: "Micro Goals" },
-  { id: "sessions",    label: "Sessions" },
   { id: "documents",   label: "Documents" },
+  { id: "summary",     label: "Summary" },
+  { id: "ai-chat",     label: "AI Chat" },
+  { id: "micro-goals", label: "Road Map" },
+  { id: "sessions",    label: "Sessions" },
   { id: "flashcards",  label: "Flashcards" },
   { id: "quizzes",     label: "Quizzes" },
-  { id: "notes",       label: "Notes" },
+  { id: "timeline",    label: "Timeline" },
 ];
 
 // ── Workspace Detail ──────────────────────────────────────────────────────────
 
-function WorkspaceDetail({
+export function WorkspaceDetail({
   workspace,
   subject,
   onBack,
@@ -53,7 +53,7 @@ function WorkspaceDetail({
   onBack: () => void;
   onDeleted: () => void;
 }) {
-  const [tab, setTab] = useState<WorkspaceTab>("micro-goals");
+  const [tab, setTab] = useState<WorkspaceTab>("documents");
   const [error, setError] = useState("");
 
   // Status update
@@ -133,249 +133,190 @@ function WorkspaceDetail({
       </div>
 
       {/* Tab content */}
+      {tab === "documents"   && <DocumentsTab workspaceId={workspace.id} subjectId={workspace.subject_id} />}
+      {tab === "summary"     && <SummaryTab workspaceId={workspace.id} />}
+      {tab === "ai-chat"     && <AIChatTab workspaceId={workspace.id} workspaceTitle={workspace.title} />}
       {tab === "micro-goals" && <MicroGoalsTab workspaceId={workspace.id} />}
       {tab === "sessions"    && <SessionsTab workspaceId={workspace.id} />}
-      {tab === "documents"   && <DocumentsTab workspaceId={workspace.id} />}
       {tab === "flashcards"  && <FlashcardsTab workspaceId={workspace.id} />}
       {tab === "quizzes"     && <QuizzesTab workspaceId={workspace.id} />}
-      {tab === "notes"       && <NotesTab workspaceId={workspace.id} subjectId={workspace.subject_id} />}
+      {tab === "timeline"    && <TimelineTab workspaceId={workspace.id} />}
+    </div>
+  );
+}
+
+// ── Summary Tab ───────────────────────────────────────────────────────────────
+
+function SummaryTab({ workspaceId }: { workspaceId: string }) {
+  const [docs, setDocs] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getDocuments(workspaceId)
+      .then(setDocs)
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, [workspaceId]);
+
+  if (loading) return <div className="text-gray-500 text-sm">Loading…</div>;
+
+  const readyDocs = docs.filter(d => d.status === "ready");
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-white">Document Summaries</h3>
+          <p className="text-xs text-gray-500 mt-0.5">AI-generated summaries of your uploaded documents</p>
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-400/10 border border-amber-400/20">
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+          <span className="text-xs font-semibold text-amber-400">Coming Soon</span>
+        </div>
+      </div>
+
+      {docs.length === 0 ? (
+        <div className="text-center py-12 text-gray-500 text-sm">
+          No documents uploaded yet. Upload a document to see its summary here.
+        </div>
+      ) : readyDocs.length === 0 ? (
+        <div className="text-center py-12 text-gray-500 text-sm">
+          Documents are still being processed. Check back shortly.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {readyDocs.map(doc => (
+            <div key={doc.id} className="rounded-xl border border-white/5 overflow-hidden">
+              {/* Doc header */}
+              <div className="flex items-center gap-3 px-4 py-3 bg-white/5">
+                <div className="w-7 h-7 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-3.5 h-3.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </div>
+                <p className="text-sm font-medium text-white truncate flex-1">{doc.original_filename}</p>
+                <span className="text-xs text-gray-600 flex-shrink-0">{fmtDate(doc.created_at)}</span>
+              </div>
+
+              {/* Summary body — placeholder */}
+              <div className="px-4 py-3 space-y-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <svg className="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  <span className="text-xs font-medium text-violet-400">AI Summary</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded-full bg-amber-400/10 text-amber-400">Coming Soon</span>
+                </div>
+                <div className="space-y-1.5">
+                  <div className="h-2 rounded-full bg-white/5 w-full" />
+                  <div className="h-2 rounded-full bg-white/5 w-5/6" />
+                  <div className="h-2 rounded-full bg-white/5 w-4/6" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── AI Coming Soon placeholder (shared) ───────────────────────────────────────
+
+function AiComingSoon({
+  icon, title, description, bullets,
+}: {
+  icon: string;
+  title: string;
+  description: string;
+  bullets: { emoji: string; text: string }[];
+}) {
+  return (
+    <div className="flex flex-col items-center py-10 gap-6">
+      <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20">
+        <svg className="w-3.5 h-3.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        </svg>
+        <span className="text-xs font-semibold text-violet-400 tracking-wide">AI-POWERED · COMING SOON</span>
+      </div>
+
+      <div className="text-center max-w-sm">
+        <div className="text-4xl mb-3">{icon}</div>
+        <h3 className="text-lg font-bold text-white">{title}</h3>
+        <p className="text-sm text-gray-500 mt-2">{description}</p>
+      </div>
+
+      <div className="w-full max-w-xs space-y-2">
+        {bullets.map((b, i) => (
+          <div key={i} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-white/[0.03] border border-white/5">
+            <span className="text-base">{b.emoji}</span>
+            <p className="text-sm text-gray-400">{b.text}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 // ── Micro Goals Tab ───────────────────────────────────────────────────────────
 
-function MicroGoalsTab({ workspaceId }: { workspaceId: string }) {
-  const [goals, setGoals] = useState<MicroGoal[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const load = async () => {
-    try { setGoals(await getMicroGoals(workspaceId)); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed to load"); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [workspaceId]);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setSaving(true);
-    try {
-      await createMicroGoal(workspaceId, { title: title.trim() });
-      setTitle(""); setShowCreate(false); await load();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setSaving(false); }
-  };
-
-  const handleStatus = async (goal: MicroGoal, status: MicroGoal["status"]) => {
-    try { await updateMicroGoal(workspaceId, goal.id, { status }); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-  };
-
-  const handleDelete = async (id: string) => {
-    try { await deleteMicroGoal(workspaceId, id); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-  };
-
-  const statusIcon: Record<string, string> = {
-    suggested: "○", pending: "○", in_progress: "◑", completed: "●", skipped: "✕",
-  };
-
-  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
-
+function MicroGoalsTab(_: { workspaceId: string }) {
   return (
-    <div className="space-y-4">
-      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-400">{goals.length} task{goals.length !== 1 ? "s" : ""}</span>
-        <button onClick={() => setShowCreate(true)}
-          className="text-sm px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white transition-colors">
-          + Add Task
-        </button>
-      </div>
-
-      {goals.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No tasks yet. Add your first micro-goal.</div>
-      ) : (
-        <div className="space-y-2">
-          {goals.map(g => (
-            <div key={g.id} className="flex items-center gap-3 p-4 bg-white/5 rounded-xl border border-white/5">
-              <span className={`text-lg ${g.status === "completed" ? "text-emerald-400" : g.status === "in_progress" ? "text-amber-400" : "text-gray-500"}`}>
-                {statusIcon[g.status] ?? "○"}
-              </span>
-              <div className="flex-1">
-                <p className={`text-sm font-medium ${g.status === "completed" ? "line-through text-gray-500" : "text-white"}`}>{g.title}</p>
-                {g.deadline && <p className="text-xs text-gray-500 mt-0.5">Due {fmtDate(g.deadline)}</p>}
-              </div>
-              <div className="flex gap-1">
-                {g.status === "pending" && (
-                  <button onClick={() => handleStatus(g, "in_progress")}
-                    className="text-xs px-2 py-1 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors">
-                    Start
-                  </button>
-                )}
-                {g.status === "in_progress" && (
-                  <button onClick={() => handleStatus(g, "completed")}
-                    className="text-xs px-2 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors">
-                    Done
-                  </button>
-                )}
-                <button onClick={() => handleDelete(g.id)}
-                  className="text-xs px-2 py-1 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-                  ✕
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showCreate && (
-        <Modal title="Add Task" onClose={() => setShowCreate(false)}>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="Task title" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500" />
-            <button type="submit" disabled={saving}
-              className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50">
-              {saving ? "Adding..." : "Add Task"}
-            </button>
-          </form>
-        </Modal>
-      )}
-    </div>
+    <AiComingSoon
+      icon="🗺️"
+      title="AI Roadmap Generator"
+      description="Upload your documents and the AI will automatically generate a personalized study roadmap broken into clear, achievable micro-goals."
+      bullets={[
+        { emoji: "📄", text: "Analyzes your uploaded documents" },
+        { emoji: "🧠", text: "Identifies key topics and concepts" },
+        { emoji: "✅", text: "Creates ordered, trackable tasks" },
+        { emoji: "📅", text: "Estimates time for each milestone" },
+      ]}
+    />
   );
 }
 
 // ── Sessions Tab ──────────────────────────────────────────────────────────────
 
-function SessionsTab({ workspaceId }: { workspaceId: string }) {
-  const [sessions, setSessions] = useState<Session[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [duration, setDuration] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const load = async () => {
-    try { setSessions(await getSessions(workspaceId)); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [workspaceId]);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setSaving(true);
-    try {
-      await createSession(workspaceId, {
-        title: title.trim() || undefined,
-        planned_duration_minutes: duration ? parseInt(duration) : undefined,
-      });
-      setTitle(""); setDuration(""); setShowCreate(false); await load();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setSaving(false); }
-  };
-
-  const handleEnd = async (s: Session) => {
-    try {
-      await updateSession(workspaceId, s.id, {
-        status: "completed",
-        ended_at: new Date().toISOString(),
-      });
-      await load();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-  };
-
-  const handleDelete = async (s: Session) => {
-    try { await deleteSession(workspaceId, s.id); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-  };
-
-  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
-
+function SessionsTab(_: { workspaceId: string }) {
   return (
-    <div className="space-y-4">
-      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-400">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</span>
-        <button onClick={() => setShowCreate(true)}
-          className="text-sm px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white transition-colors">
-          + Start Session
-        </button>
-      </div>
-
-      {sessions.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No sessions yet.</div>
-      ) : (
-        <div className="space-y-3">
-          {sessions.map(s => (
-            <div key={s.id} className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-2">
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-white">{s.title ?? "Study Session"}</p>
-                  <p className="text-xs text-gray-500">{fmtDate(s.started_at)}</p>
-                </div>
-                <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(s.status)}`}>
-                  {s.status}
-                </span>
-              </div>
-              {s.planned_duration_minutes && (
-                <p className="text-xs text-gray-500">Planned: {s.planned_duration_minutes} min</p>
-              )}
-              <div className="flex gap-2">
-                {s.status === "active" && (
-                  <button onClick={() => handleEnd(s)}
-                    className="text-xs px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors">
-                    End Session
-                  </button>
-                )}
-                <button onClick={() => handleDelete(s)}
-                  className="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors">
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showCreate && (
-        <Modal title="Start Session" onClose={() => setShowCreate(false)}>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="Session title (optional)"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500" />
-            <input type="number" value={duration} onChange={e => setDuration(e.target.value)}
-              placeholder="Planned duration (minutes, optional)" min={1}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500" />
-            <button type="submit" disabled={saving}
-              className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50">
-              {saving ? "Starting..." : "Start Session"}
-            </button>
-          </form>
-        </Modal>
-      )}
-    </div>
+    <AiComingSoon
+      icon="⏱️"
+      title="AI Study Scheduler"
+      description="Tell the AI your deadline and availability — it will plan optimized study sessions around your micro-goals and track your progress automatically."
+      bullets={[
+        { emoji: "📆", text: "Schedules sessions around your calendar" },
+        { emoji: "🎯", text: "Aligns each session to a micro-goal" },
+        { emoji: "📊", text: "Tracks focus time and completion rate" },
+        { emoji: "🔔", text: "Smart reminders and streak tracking" },
+      ]}
+    />
   );
 }
 
 // ── Documents Tab ─────────────────────────────────────────────────────────────
 
-function DocumentsTab({ workspaceId }: { workspaceId: string }) {
+function DocumentsTab({ workspaceId, subjectId }: { workspaceId: string; subjectId: string }) {
   const [docs, setDocs] = useState<Document[]>([]);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
+  const [opening, setOpening] = useState<string | null>(null);       // doc id being opened
+  const [docViewer, setDocViewer] = useState<{ doc: Document; content: DocumentContent } | null>(null);
+  const [openNote, setOpenNote] = useState<Note | null>(null);
+  const [creatingNote, setCreatingNote] = useState(false);
 
   const load = async () => {
-    try { setDocs(await getDocuments(workspaceId)); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
+    try {
+      const [d, n] = await Promise.all([
+        getDocuments(workspaceId),
+        getNotes({ workspace_id: workspaceId }),
+      ]);
+      setDocs(d);
+      setNotes(n.filter(n => n.canvas_enabled));
+    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, [workspaceId]);
@@ -389,317 +330,429 @@ function DocumentsTab({ workspaceId }: { workspaceId: string }) {
     finally { setUploading(false); e.target.value = ""; }
   };
 
-  const handleDelete = async (doc: Document) => {
+  const handleDeleteDoc = async (doc: Document) => {
     if (!confirm(`Delete "${doc.original_filename}"?`)) return;
     try { await deleteDocument(workspaceId, doc.id); await load(); }
     catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
   };
 
+  const handleDeleteNote = async (id: string) => {
+    try { await deleteNote(id); await load(); }
+    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
+  };
+
+  const handleOpenDoc = async (doc: Document) => {
+    setOpening(doc.id);
+    try {
+      const content = await getDocumentContent(workspaceId, doc.id);
+      setDocViewer({ doc, content });
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load document content");
+    } finally {
+      setOpening(null);
+    }
+  };
+
+  const handleNewNote = async () => {
+    setCreatingNote(true);
+    try {
+      const note = await createNote({
+        subject_id: subjectId,
+        workspace_id: workspaceId,
+        title: "",
+        content: "",
+        canvas_enabled: true,
+      });
+      await load();
+      setOpenNote(note);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to create note");
+    } finally {
+      setCreatingNote(false);
+    }
+  };
+
   if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
 
+  // Full-screen overlays
+  if (docViewer) {
+    return (
+      <DocumentCanvasViewer
+        filename={docViewer.doc.original_filename}
+        content={docViewer.content}
+        onClose={() => setDocViewer(null)}
+      />
+    );
+  }
+  if (openNote) {
+    return (
+      <CanvasNoteEditor
+        note={openNote}
+        onClose={() => { setOpenNote(null); load(); }}
+        onSaved={updated => setOpenNote(updated)}
+      />
+    );
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-8">
       {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-400">{docs.length} document{docs.length !== 1 ? "s" : ""}</span>
-        <label className={`text-sm px-4 py-2 rounded-xl cursor-pointer transition-colors ${uploading ? "bg-violet-600/50 text-white/50" : "bg-violet-600 hover:bg-violet-500 text-white"}`}>
-          {uploading ? "Uploading..." : "+ Upload"}
-          <input type="file" className="hidden" onChange={handleUpload} disabled={uploading}
-            accept=".pdf,.doc,.docx,.txt,.md,.pptx" />
-        </label>
+
+      {/* ── Documents section ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Documents</p>
+          <label className={`text-sm px-3 py-1.5 rounded-xl cursor-pointer transition-colors ${uploading ? "bg-cyan-600/50 text-white/50" : "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400"}`}>
+            {uploading ? "Uploading…" : "+ Upload"}
+            <input type="file" className="hidden" onChange={handleUpload} disabled={uploading}
+              accept=".pdf,.doc,.docx,.txt,.md,.pptx" />
+          </label>
+        </div>
+
+        {docs.length === 0 ? (
+          <label className={`flex flex-col items-center justify-center gap-3 p-10 rounded-2xl border-2 border-dashed cursor-pointer transition-colors ${uploading ? "border-cyan-500/50 bg-cyan-500/5" : "border-white/10 hover:border-cyan-500/40 hover:bg-white/[0.02]"}`}>
+            <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+              <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+              </svg>
+            </div>
+            <div className="text-center">
+              <p className="text-white font-medium text-sm">{uploading ? "Uploading…" : "Upload a document"}</p>
+              <p className="text-xs text-gray-600 mt-0.5">PDF, Word, PowerPoint, or plain text</p>
+            </div>
+            <input type="file" className="hidden" onChange={handleUpload} disabled={uploading}
+              accept=".pdf,.doc,.docx,.txt,.md,.pptx" />
+          </label>
+        ) : (
+          <div className="space-y-2">
+            {docs.map(d => (
+              <div key={d.id} className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
+                    <svg className="w-4.5 h-4.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-white truncate">{d.original_filename}</p>
+                    <p className="text-xs text-gray-500">{fmtSize(d.file_size)} · {fmtDate(d.created_at)}</p>
+                  </div>
+                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${statusColor(d.status)}`}>
+                    {d.status === "processing" ? "extracting…" : d.status}
+                  </span>
+                  <button onClick={() => handleDeleteDoc(d)} className="text-gray-600 hover:text-red-400 transition-colors p-1 flex-shrink-0">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                </div>
+
+                {d.status === "ready" && (
+                  <div className="pt-1 border-t border-white/5">
+                    <button
+                      onClick={() => handleOpenDoc(d)}
+                      disabled={opening === d.id}
+                      className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500/20 disabled:opacity-50 transition-colors"
+                    >
+                      {opening === d.id ? (
+                        <><span className="w-3 h-3 border border-cyan-400 border-t-transparent rounded-full animate-spin" />Loading…</>
+                      ) : (
+                        <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>Open in Canvas</>
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
-      {docs.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No documents. Upload a PDF, Word doc, or text file.</div>
-      ) : (
-        <div className="space-y-3">
-          {docs.map(d => (
-            <div key={d.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
-              <div className="w-10 h-10 rounded-lg bg-cyan-500/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white truncate">{d.original_filename}</p>
-                <p className="text-xs text-gray-500">{fmtSize(d.file_size)} · {fmtDate(d.created_at)}</p>
-              </div>
-              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(d.status)}`}>
-                {d.status}
-              </span>
-              <button onClick={() => handleDelete(d)}
-                className="text-gray-500 hover:text-red-400 transition-colors p-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
-            </div>
-          ))}
+      {/* ── Canvas Notes section ── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Canvas Notes</p>
+          <button
+            onClick={handleNewNote}
+            disabled={creatingNote}
+            className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 transition-colors disabled:opacity-50"
+          >
+            {creatingNote ? (
+              <><span className="w-3 h-3 border border-violet-400 border-t-transparent rounded-full animate-spin" />Creating…</>
+            ) : (
+              <><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"/></svg>New Note</>
+            )}
+          </button>
         </div>
-      )}
+
+        {notes.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 py-8 text-center">
+            <div className="w-9 h-9 rounded-xl bg-violet-500/10 flex items-center justify-center">
+              <svg className="w-4.5 h-4.5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+              </svg>
+            </div>
+            <p className="text-sm text-gray-500">No canvas notes yet.</p>
+            <p className="text-xs text-gray-600">Create a new note or open a document in canvas mode.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {notes.map(n => (
+              <div key={n.id}
+                className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5 hover:border-violet-500/20 cursor-pointer transition-colors group"
+                onClick={() => setOpenNote(n)}
+              >
+                <div className="w-8 h-8 rounded-lg bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/>
+                  </svg>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-white truncate">{n.title || "Untitled note"}</p>
+                  <p className="text-xs text-gray-600">{fmtDate(n.updated_at)}</p>
+                </div>
+                <button
+                  onClick={e => { e.stopPropagation(); handleDeleteNote(n.id); }}
+                  className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-red-400 transition-all p-1 flex-shrink-0"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
 // ── Flashcards Tab ────────────────────────────────────────────────────────────
 
-function FlashcardsTab({ workspaceId }: { workspaceId: string }) {
-  const [decks, setDecks] = useState<FlashcardDeck[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const load = async () => {
-    try { setDecks(await getDecks(workspaceId)); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [workspaceId]);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!title.trim()) return;
-    setSaving(true);
-    try { await createDeck(workspaceId, { title: title.trim() }); setTitle(""); setShowCreate(false); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setSaving(false); }
-  };
-
-  const handleDelete = async (deck: FlashcardDeck) => {
-    if (!confirm(`Delete deck "${deck.title}"?`)) return;
-    try { await deleteDeck(workspaceId, deck.id); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-  };
-
-  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
-
+function FlashcardsTab(_: { workspaceId: string }) {
   return (
-    <div className="space-y-4">
-      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-400">{decks.length} deck{decks.length !== 1 ? "s" : ""}</span>
-        <button onClick={() => setShowCreate(true)}
-          className="text-sm px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white transition-colors">
-          + New Deck
-        </button>
-      </div>
-
-      {decks.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No flashcard decks yet.</div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {decks.map(d => (
-            <div key={d.id} className="p-5 bg-white/5 rounded-xl border border-white/5 space-y-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                  <span className="text-lg">{d.icon ?? "🃏"}</span>
-                </div>
-                <button onClick={() => handleDelete(d)} className="text-gray-600 hover:text-red-400 transition-colors p-1">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-              <p className="text-sm font-semibold text-white">{d.title}</p>
-              {d.description && <p className="text-xs text-gray-500">{d.description}</p>}
-            </div>
-          ))}
-        </div>
-      )}
-
-      {showCreate && (
-        <Modal title="New Flashcard Deck" onClose={() => setShowCreate(false)}>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="Deck name" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500" />
-            <button type="submit" disabled={saving}
-              className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50">
-              {saving ? "Creating..." : "Create Deck"}
-            </button>
-          </form>
-        </Modal>
-      )}
-    </div>
+    <AiComingSoon
+      icon="🃏"
+      title="AI Flashcard Generator"
+      description="The AI reads your documents and canvas notes to automatically generate spaced-repetition flashcard decks — no manual card creation needed."
+      bullets={[
+        { emoji: "📖", text: "Extracts key terms and definitions" },
+        { emoji: "🔁", text: "Spaced repetition scheduling" },
+        { emoji: "🌍", text: "Supports multiple languages" },
+        { emoji: "📈", text: "Tracks retention and weak spots" },
+      ]}
+    />
   );
 }
 
 // ── Quizzes Tab ───────────────────────────────────────────────────────────────
 
-function QuizzesTab({ workspaceId }: { workspaceId: string }) {
-  const [quizSets, setQuizSets] = useState<QuizSet[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [title, setTitle] = useState("");
-  const [saving, setSaving] = useState(false);
+function QuizzesTab(_: { workspaceId: string }) {
+  return (
+    <AiComingSoon
+      icon="📝"
+      title="AI Quiz Generator"
+      description="Generate practice quizzes from your materials with multiple-choice, true/false, and short-answer questions — graded instantly by AI."
+      bullets={[
+        { emoji: "🎯", text: "Targets your weakest areas first" },
+        { emoji: "✍️", text: "Multiple question formats" },
+        { emoji: "⚡", text: "Instant AI grading and feedback" },
+        { emoji: "🏆", text: "Score history and progress tracking" },
+      ]}
+    />
+  );
+}
 
-  const load = async () => {
-    try { setQuizSets(await getQuizSets(workspaceId)); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [workspaceId]);
+// ── AI Chat Tab ───────────────────────────────────────────────────────────────
 
-  const handleCreate = async (e: React.FormEvent) => {
+interface ChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  timestamp: Date;
+}
+
+function AIChatTab({ workspaceId, workspaceTitle }: { workspaceId: string; workspaceTitle: string }) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const bottomRef = { current: null as HTMLDivElement | null };
+
+  // Auto-scroll
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const handleSend = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
-    setSaving(true);
-    try { await createQuizSet(workspaceId, { title: title.trim() }); setTitle(""); setShowCreate(false); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setSaving(false); }
+    if (!input.trim() || loading) return;
+    const userMsg: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: input.trim(),
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, userMsg]);
+    setInput("");
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/v1/workspaces/${workspaceId}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: userMsg.content }),
+      });
+      if (!res.ok) throw new Error("Failed");
+      const data = await res.json();
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: data.reply ?? data.message ?? "No response.",
+        timestamp: new Date(),
+      }]);
+    } catch {
+      setMessages(prev => [...prev, {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "AI Chat is coming soon. This feature will let you ask questions about your workspace materials, get study tips, and generate practice questions.",
+        timestamp: new Date(),
+      }]);
+    } finally {
+      setLoading(false);
+    }
   };
-
-  const handleDelete = async (qs: QuizSet) => {
-    if (!confirm(`Delete quiz "${qs.title}"?`)) return;
-    try { await deleteQuizSet(workspaceId, qs.id); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-  };
-
-  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
 
   return (
-    <div className="space-y-4">
-      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-400">{quizSets.length} quiz set{quizSets.length !== 1 ? "s" : ""}</span>
-        <button onClick={() => setShowCreate(true)}
-          className="text-sm px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white transition-colors">
-          + New Quiz
-        </button>
+    <div className="flex flex-col h-[60vh] rounded-2xl border border-white/10 bg-white/[0.02] overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-4 py-3 border-b border-white/10 flex-shrink-0">
+        <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+          <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-white">AI Study Assistant</p>
+          <p className="text-xs text-gray-500">Ask anything about <span className="text-gray-400">{workspaceTitle}</span></p>
+        </div>
       </div>
 
-      {quizSets.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No quiz sets yet.</div>
-      ) : (
-        <div className="space-y-3">
-          {quizSets.map(qs => (
-            <div key={qs.id} className="flex items-center gap-4 p-4 bg-white/5 rounded-xl border border-white/5">
-              <div className="w-10 h-10 rounded-lg bg-amber-500/10 flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                </svg>
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-white">{qs.title}</p>
-                {qs.description && <p className="text-xs text-gray-500 truncate">{qs.description}</p>}
-                {qs.time_limit_minutes && <p className="text-xs text-gray-500">{qs.time_limit_minutes} min limit</p>}
-              </div>
-              <button onClick={() => handleDelete(qs)} className="text-gray-500 hover:text-red-400 transition-colors p-1">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                </svg>
-              </button>
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center gap-4">
+            <div className="w-16 h-16 rounded-2xl bg-violet-500/10 flex items-center justify-center">
+              <svg className="w-8 h-8 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
             </div>
-          ))}
-        </div>
-      )}
+            <div>
+              <p className="text-white font-medium">Ask your AI tutor</p>
+              <p className="text-sm text-gray-500 mt-1 max-w-xs">Summarize documents, explain concepts, generate practice questions, or get study tips for this workspace.</p>
+            </div>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {["Summarize my documents", "Create practice questions", "Explain key concepts"].map(s => (
+                <button key={s} onClick={() => setInput(s)}
+                  className="text-xs px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:border-violet-500/50 transition-colors">
+                  {s}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
-      {showCreate && (
-        <Modal title="New Quiz Set" onClose={() => setShowCreate(false)}>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <input autoFocus value={title} onChange={e => setTitle(e.target.value)}
-              placeholder="Quiz title" required
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500" />
-            <button type="submit" disabled={saving}
-              className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50">
-              {saving ? "Creating..." : "Create Quiz"}
-            </button>
-          </form>
-        </Modal>
-      )}
+        {messages.map(msg => (
+          <div key={msg.id} className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 text-xs font-bold ${
+              msg.role === "user" ? "bg-violet-600 text-white" : "bg-white/10 text-gray-400"
+            }`}>
+              {msg.role === "user" ? "U" : "AI"}
+            </div>
+            <div className={`max-w-[75%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
+              msg.role === "user"
+                ? "bg-violet-600 text-white rounded-tr-sm"
+                : "bg-white/5 text-gray-200 rounded-tl-sm border border-white/5"
+            }`}>
+              {msg.content}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex gap-3">
+            <div className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center flex-shrink-0 text-xs font-bold text-gray-400">AI</div>
+            <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm px-4 py-3 flex gap-1.5 items-center">
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+              <span className="w-1.5 h-1.5 rounded-full bg-gray-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+            </div>
+          </div>
+        )}
+
+        <div ref={el => { bottomRef.current = el; }} />
+      </div>
+
+      {/* Input */}
+      <form onSubmit={handleSend} className="flex gap-2 p-3 border-t border-white/10 flex-shrink-0">
+        <input
+          value={input}
+          onChange={e => setInput(e.target.value)}
+          placeholder="Ask something…"
+          className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-violet-500 transition-colors"
+        />
+        <button type="submit" disabled={!input.trim() || loading}
+          className="w-10 h-10 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-40 flex items-center justify-center transition-colors">
+          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+          </svg>
+        </button>
+      </form>
     </div>
   );
 }
 
-// ── Notes Tab ─────────────────────────────────────────────────────────────────
+// ── Timeline Tab ──────────────────────────────────────────────────────────────
 
-function NotesTab({ workspaceId, subjectId }: { workspaceId: string; subjectId: string }) {
-  const [notes, setNotes] = useState<Note[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [showCreate, setShowCreate] = useState(false);
-  const [noteTitle, setNoteTitle] = useState("");
-  const [noteContent, setNoteContent] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  const load = async () => {
-    try { setNotes(await getNotes({ workspace_id: workspaceId })); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setLoading(false); }
-  };
-  useEffect(() => { load(); }, [workspaceId]);
-
-  const handleCreate = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!noteContent.trim()) return;
-    setSaving(true);
-    try {
-      await createNote({ subject_id: subjectId, workspace_id: workspaceId, title: noteTitle.trim() || undefined, content: noteContent.trim() });
-      setNoteTitle(""); setNoteContent(""); setShowCreate(false); await load();
-    } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-    finally { setSaving(false); }
-  };
-
-  const handleDelete = async (id: string) => {
-    try { await deleteNote(id); await load(); }
-    catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
-  };
-
-  if (loading) return <div className="text-gray-500 text-sm">Loading...</div>;
+function TimelineTab(_: { workspaceId: string }) {
+  const steps = [
+    { icon: "📄", label: "Upload documents", color: "text-cyan-400 bg-cyan-400/10" },
+    { icon: "🤖", label: "AI extracts & summarizes", color: "text-violet-400 bg-violet-400/10" },
+    { icon: "🗺️", label: "Build your roadmap (Micro Goals)", color: "text-blue-400 bg-blue-400/10" },
+    { icon: "⏱️", label: "Log study sessions", color: "text-emerald-400 bg-emerald-400/10" },
+    { icon: "🃏", label: "Review with Flashcards & Quizzes", color: "text-amber-400 bg-amber-400/10" },
+    { icon: "✅", label: "Track progress on the Timeline", color: "text-pink-400 bg-pink-400/10" },
+  ];
 
   return (
-    <div className="space-y-4">
-      {error && <div className="p-3 rounded-xl bg-red-500/10 text-red-400 text-sm">{error}</div>}
-      <div className="flex justify-between items-center">
-        <span className="text-sm text-gray-400">{notes.length} note{notes.length !== 1 ? "s" : ""}</span>
-        <button onClick={() => setShowCreate(true)}
-          className="text-sm px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white transition-colors">
-          + New Note
-        </button>
+    <div className="flex flex-col items-center py-12 gap-8">
+      {/* Badge */}
+      <div className="flex items-center gap-2 px-4 py-1.5 rounded-full bg-amber-400/10 border border-amber-400/20">
+        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+        <span className="text-xs font-semibold text-amber-400 tracking-wide">COMING SOON</span>
       </div>
 
-      {notes.length === 0 ? (
-        <div className="text-center py-12 text-gray-500">No notes yet.</div>
-      ) : (
-        <div className="space-y-3">
-          {notes.map(n => (
-            <div key={n.id} className="p-4 bg-white/5 rounded-xl border border-white/5 space-y-2">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  {n.title && <p className="text-sm font-semibold text-white">{n.title}</p>}
-                  <p className="text-xs text-gray-400 mt-1 line-clamp-3">{n.content}</p>
-                </div>
-                <button onClick={() => handleDelete(n.id)} className="text-gray-600 hover:text-red-400 transition-colors p-1 flex-shrink-0">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
-              </div>
-              <p className="text-xs text-gray-600">{fmtDate(n.updated_at)}</p>
-            </div>
-          ))}
-        </div>
-      )}
+      {/* Heading */}
+      <div className="text-center max-w-md">
+        <h3 className="text-xl font-bold text-white">Study Timeline</h3>
+        <p className="text-sm text-gray-500 mt-2">
+          A visual history of everything you do in this workspace — sessions, uploads, goals completed, and milestones reached — all on one scrollable timeline.
+        </p>
+      </div>
 
-      {showCreate && (
-        <Modal title="New Note" onClose={() => setShowCreate(false)}>
-          <form onSubmit={handleCreate} className="space-y-4">
-            <input autoFocus value={noteTitle} onChange={e => setNoteTitle(e.target.value)}
-              placeholder="Title (optional)"
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500" />
-            <textarea value={noteContent} onChange={e => setNoteContent(e.target.value)}
-              placeholder="Note content..." required rows={5}
-              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 resize-none" />
-            <button type="submit" disabled={saving}
-              className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50">
-              {saving ? "Saving..." : "Save Note"}
-            </button>
-          </form>
-        </Modal>
-      )}
+      {/* Preview steps */}
+      <div className="w-full max-w-sm space-y-0">
+        {steps.map((step, i) => (
+          <div key={i} className="flex items-start gap-3">
+            <div className="flex flex-col items-center">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-base ${step.color}`}>
+                {step.icon}
+              </div>
+              {i < steps.length - 1 && <div className="w-px h-6 bg-white/5" />}
+            </div>
+            <p className="text-sm text-gray-400 mt-2">{step.label}</p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

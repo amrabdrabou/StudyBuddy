@@ -13,8 +13,14 @@ PRE_CREATE: list[str] = [
 ]
 
 POST_CREATE: list[str] = [
-    # Add indexes that reference newly created tables here, e.g.:
-    # "CREATE INDEX IF NOT EXISTS idx_foo ON bar(baz)",
+    # Mission card fields on big_goals
+    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS cover_color VARCHAR(20) NOT NULL DEFAULT '#6366f1'",
+    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS icon VARCHAR(100)",
+    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT false",
+    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0",
+    # Canvas editor flag on notes
+    "ALTER TABLE notes ADD COLUMN IF NOT EXISTS canvas_enabled BOOLEAN NOT NULL DEFAULT false",
 ]
 
 

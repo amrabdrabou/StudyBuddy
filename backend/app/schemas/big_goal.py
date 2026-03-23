@@ -15,6 +15,9 @@ class BigGoalCreate(BaseModel):
     description: Optional[str] = None
     deadline: Optional[date] = None
     subject_ids: List[uuid.UUID] = Field(default_factory=list)
+    cover_color: str = Field("#6366f1", max_length=20)
+    icon: Optional[str] = Field(None, max_length=100)
+    pinned: bool = False
 
 
 class BigGoalUpdate(BaseModel):
@@ -23,6 +26,11 @@ class BigGoalUpdate(BaseModel):
     deadline: Optional[date] = None
     status: Optional[str] = None
     subject_ids: Optional[List[uuid.UUID]] = None
+    cover_color: Optional[str] = Field(None, max_length=20)
+    icon: Optional[str] = Field(None, max_length=100)
+    pinned: Optional[bool] = None
+    archived: Optional[bool] = None
+    display_order: Optional[int] = None
 
     @field_validator("status")
     @classmethod
@@ -38,6 +46,14 @@ class BigGoalSubjectInfo(BaseModel):
     model_config = {"from_attributes": True}
 
 
+class SubjectSummary(BaseModel):
+    id: uuid.UUID
+    name: str
+    color_hex: Optional[str]
+    icon: Optional[str]
+    workspace_count: int
+
+
 class BigGoalResponse(BaseModel):
     id: uuid.UUID
     user_id: uuid.UUID
@@ -47,6 +63,11 @@ class BigGoalResponse(BaseModel):
     deadline: Optional[date]
     progress_pct: int
     subject_ids: List[uuid.UUID] = Field(default_factory=list)
+    cover_color: str
+    icon: Optional[str]
+    pinned: bool
+    archived: bool
+    display_order: int
     created_at: datetime
     updated_at: datetime
 
@@ -65,7 +86,20 @@ class BigGoalResponse(BaseModel):
             "deadline": g.deadline,
             "progress_pct": g.progress_pct,
             "subject_ids": [bgs.subject_id for bgs in (g.big_goal_subjects or [])],
+            "cover_color": g.cover_color,
+            "icon": g.icon,
+            "pinned": g.pinned,
+            "archived": g.archived,
+            "display_order": g.display_order,
             "created_at": g.created_at,
             "updated_at": g.updated_at,
         }
         return cls(**data)
+
+
+class BigGoalDetailResponse(BigGoalResponse):
+    """Aggregated card detail — includes subject summaries and resource counts."""
+    subjects_detail: List[SubjectSummary] = Field(default_factory=list)
+    workspace_count: int = 0
+    document_count: int = 0
+    note_count: int = 0

@@ -66,7 +66,7 @@ def _extract_pdf(path: Path) -> str:
     try:
         from pypdf import PdfReader
     except ImportError:
-        raise ExtractionError()
+        raise ExtractionError("pypdf is not installed. Run: pip install pypdf")
 
     reader = PdfReader(str(path))
     pages = [page.extract_text() or "" for page in reader.pages]
@@ -77,7 +77,7 @@ def _extract_docx(path: Path) -> str:
     try:
         from docx import Document as DocxDocument
     except ImportError:
-        raise ExtractionError()
+        raise ExtractionError("python-docx is not installed. Run: pip install python-docx")
 
     doc = DocxDocument(str(path))
     return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
