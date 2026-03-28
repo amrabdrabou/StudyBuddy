@@ -39,6 +39,18 @@ class Session(Base):
         index=True,
     )
 
+    # Optional links to generated study materials
+    flashcard_deck_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("flashcard_decks.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+    quiz_set_id: Mapped[Optional[uuid.UUID]] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("quiz_sets.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     title: Mapped[Optional[str]] = mapped_column(String(300), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="active", nullable=False)
 

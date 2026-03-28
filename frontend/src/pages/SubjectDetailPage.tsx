@@ -3,13 +3,7 @@ import type { BigGoal } from "../api/big_goals";
 import type { Subject } from "../api/subjects";
 import { getWorkspaces, createWorkspace, updateWorkspace, deleteWorkspace, type Workspace, type WorkspaceStatus } from "../api/workspaces";
 import Modal from "../components/ui/Modal";
-
-interface NavActions {
-  toGoals: () => void;
-  toGoal: (g: BigGoal) => void;
-  toWorkspace: (g: BigGoal, s: Subject, w: Workspace) => void;
-  goBack: () => void;
-}
+import { useNavStore } from "../store/navStore";
 
 function wsStatusColor(status: string) {
   return {
@@ -21,8 +15,10 @@ function wsStatusColor(status: string) {
 }
 
 export default function SubjectDetailPage({
-  goal, subject, nav,
-}: { goal: BigGoal; subject: Subject; nav: NavActions }) {
+  goal, subject,
+}: { goal: BigGoal; subject: Subject }) {
+  const { toGoals, toGoal, toWorkspace, goBack } = useNavStore();
+  const nav = { toGoals, toGoal, toWorkspace, goBack };
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading]       = useState(true);
   const [showCreate, setShowCreate] = useState(false);

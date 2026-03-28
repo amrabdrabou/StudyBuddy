@@ -1,137 +1,73 @@
-
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
+import { useAuthStore } from "./store/authStore";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import HomePage from "./pages/HomePage";
 import DashboardPage from "./pages/DashboardPage";
 import SplashScreen from "./pages/SplashScreen";
-import { getToken, removeToken } from "./api/auth";
-
-type Page = "home" | "login" | "register" | "dashboard";
-
-const pathToPage = (path: string): Page => {
-  if (path === "/login") return "login";
-  if (path === "/register") return "register";
-  if (path === "/" || path === "") return "home";
-  return "dashboard";
-};
-
-/** Enforce auth rules: logged-in users can't access auth/home pages; guests can't access dashboard. */
-const guard = (page: Page, loggedIn: boolean): Page => {
-  if (loggedIn && (page === "home" || page === "login" || page === "register")) return "dashboard";
-  if (!loggedIn && page === "dashboard") return "login";
-  return page;
-};
 
 export default function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(() => !!getToken());
-  const [page, setPage] = useState<Page>(() => guard(pathToPage(window.location.pathname), !!getToken()));
-  const [showSplash, setShowSplash] = useState(true);
+  const {
+    isLoggedIn,
+    page,
+    showSplash,
+    setShowSplash,
+    navigatePage,
+    syncPageFromBrowser,
+    loginSuccess,
+    handleAuthExpired,
+    signOut,
+  } = useAuthStore();
 
   useEffect(() => {
     const timer = setTimeout(() => setShowSplash(false), 1500);
     return () => clearTimeout(timer);
-  }, []);
-
-  const navigate = (next: Page) => {
-    const dest = guard(next, isLoggedIn);
-    let path: string;
-    if (dest === "dashboard") path = "/dashboard";
-    else if (dest === "login") path = "/login";
-    else if (dest === "register") path = "/register";
-    else path = "/";
-    window.history.pushState({ page: dest }, "", path);
-    setPage(dest);
-  };
+  }, [setShowSplash]);
 
   useEffect(() => {
-    const onPop = () => {
-      const derived = pathToPage(window.location.pathname);
-      const dest = guard(derived, !!getToken());
-      setPage(dest);
-    };
+    const onPop = () => syncPageFromBrowser();
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, []);
+  }, [syncPageFromBrowser]);
 
-  // Global handler for token expiry — any authFetch 401 fires this event
   useEffect(() => {
-    const onAuthExpired = () => {
-      setIsLoggedIn(false);
-      window.history.pushState({ page: "login" }, "", "/login");
-      setPage("login");
-    };
-    window.addEventListener("auth:expired", onAuthExpired);
-    return () => window.removeEventListener("auth:expired", onAuthExpired);
-  }, []);
+    window.addEventListener("auth:expired", handleAuthExpired);
+    return () => window.removeEventListener("auth:expired", handleAuthExpired);
+  }, [handleAuthExpired]);
 
-  const handleLoginSuccess = () => {
-    setIsLoggedIn(true);
-    window.history.pushState({ page: "dashboard" }, "", "/dashboard");
-    setPage("dashboard");
-  };
+  if (showSplash) return <SplashScreen />;
 
-  const handleSignOut = async () => {
-    const token = getToken();
-    removeToken(); // clear local state immediately
-    setIsLoggedIn(false);
-    // Fire-and-forget server-side logout to invalidate the hashed token in DB
-    if (token) {
-      try {
-        await fetch(`${import.meta.env.VITE_API_URL ?? "http://localhost:8000/api/v1"}/auth/logout`, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-      } catch { /* ignore — local state already cleared */ }
-    }
-    window.history.pushState({ page: "home" }, "", "/");
-    setPage("home");
-  };
-
-  // Apply guard at render time to catch any edge cases (direct URL, history navigation)
-  const current = guard(page, isLoggedIn);
-
-  if (showSplash) {
-    return <SplashScreen />;
-  }
-
-  if (current === "login") {
+  if (page === "login") {
     return (
       <LoginPage
-        onSuccess={handleLoginSuccess}
-        onGoToRegister={() => navigate("register")}
-        onGoToHome={() => navigate("home")}
+        onSuccess={loginSuccess}
+        onGoToRegister={() => navigatePage("register")}
+        onGoToHome={() => navigatePage("home")}
       />
     );
   }
 
-  if (current === "register") {
+  if (page === "register") {
     return (
       <RegisterPage
-        onSuccess={() => navigate("login")}
-        onGoToLogin={() => navigate("login")}
-        onGoToHome={() => navigate("home")}
+        onSuccess={() => navigatePage("login")}
+        onGoToLogin={() => navigatePage("login")}
+        onGoToHome={() => navigatePage("home")}
       />
     );
   }
 
-  if (current === "dashboard") {
-    return (
-      <DashboardPage
-        initialSection={initialSection}
-        onSignOut={handleSignOut}
-        onGoToHome={() => navigate("home")}
-      />
-    );
+  if (page === "dashboard") {
+    return <DashboardPage onSignOut={signOut} />;
   }
 
   return (
     <HomePage
       isLoggedIn={isLoggedIn}
-      onGoToLogin={() => navigate("login")}
-      onGoToRegister={() => navigate("register")}
-      onSignOut={handleSignOut}
-      onGoToDashboard={() => navigate("dashboard")}
+      onGoToLogin={() => navigatePage("login")}
+      onGoToRegister={() => navigatePage("register")}
+      onSignOut={signOut}
+      onGoToDashboard={() => navigatePage("dashboard")}
     />
   );
 }

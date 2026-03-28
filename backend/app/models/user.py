@@ -12,6 +12,7 @@ from app.core.db_setup import Base
 
 if TYPE_CHECKING:
     from app.models.token import Token
+    from app.models.user_role import UserRole
     from app.models.subject import Subject
     from app.models.big_goal import BigGoal
     from app.models.workspace import Workspace
@@ -75,6 +76,11 @@ class User(Base):
     # ── Auth ──────────────────────────────────────────────────────────────────
     tokens: Mapped[List["Token"]] = relationship(
         "Token", back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    )
+    # lazy="noload": roles are never fetched automatically; the RBAC service
+    # queries them explicitly via JOIN when a permission check is required.
+    user_roles: Mapped[List["UserRole"]] = relationship(
+        "UserRole", back_populates="user", cascade="all, delete-orphan", lazy="noload"
     )
 
     # ── Subjects & Goals ──────────────────────────────────────────────────────

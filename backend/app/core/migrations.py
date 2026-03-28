@@ -21,6 +21,17 @@ POST_CREATE: list[str] = [
     "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0",
     # Canvas editor flag on notes
     "ALTER TABLE notes ADD COLUMN IF NOT EXISTS canvas_enabled BOOLEAN NOT NULL DEFAULT false",
+    # Study session links on sessions
+    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS flashcard_deck_id UUID REFERENCES flashcard_decks(id) ON DELETE SET NULL",
+    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS quiz_set_id UUID REFERENCES quiz_sets(id) ON DELETE SET NULL",
+    # Partial unique index: only one active version per (name, role) in prompts table
+    # Standard UNIQUE on (name, role, is_active) won't work because multiple inactive
+    # rows share is_active=false. A partial index is the correct constraint.
+    """
+    CREATE UNIQUE INDEX IF NOT EXISTS uq_prompt_active_name_role
+    ON prompts (name, role)
+    WHERE is_active = TRUE
+    """,
 ]
 
 

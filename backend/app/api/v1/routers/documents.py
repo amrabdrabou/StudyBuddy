@@ -76,6 +76,14 @@ async def _run_extraction(doc_id: uuid.UUID, storage_path: str, mime_type: str) 
                 doc.status = "ready"
             await db.commit()
 
+            # Emit pipeline event now that document is ready
+            if doc:
+                try:
+                    from app.services.pipeline.events import emit_document_ready
+                    emit_document_ready(doc.workspace_id, doc_id)
+                except Exception:
+                    logger.warning("Failed to emit document.ready event for doc %s", doc_id)
+
         except ExtractionError as exc:
             logger.warning("Extraction failed for doc %s: %s", doc_id, exc)
             result = await db.execute(select(Document).where(Document.id == doc_id))

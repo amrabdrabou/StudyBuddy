@@ -17,9 +17,17 @@ export interface UserResponse {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
+  profile_picture_url: string | null;
+  timezone: string | null;
+  study_goal_minutes_per_day: number | null;
+  preferred_study_time: string | null;
   is_active: boolean;
   is_verified: boolean;
+  is_superuser: boolean;
+  auth_provider: string;
   created_at: string;
+  updated_at: string;
+  last_login_at: string | null;
 }
 
 export interface TokenResponse {
@@ -141,8 +149,10 @@ export interface UpdateProfileData {
   first_name?: string;
   last_name?: string;
   username?: string;
+  profile_picture_url?: string;
   timezone?: string;
   study_goal_minutes_per_day?: number;
+  preferred_study_time?: string;
 }
 
 export async function updateProfile(

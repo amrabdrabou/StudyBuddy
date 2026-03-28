@@ -5,7 +5,7 @@ from fastapi import HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.study_session import StudySession
+from app.models.session import Session
 from app.models.document import Document
 from app.models.user import User
 
@@ -14,8 +14,8 @@ async def get_owned_session(
     session_id: UUID,
     current_user: User,
     db: AsyncSession,
-) -> StudySession:
-    result = await db.execute(select(StudySession).where(StudySession.id == session_id))
+) -> Session:
+    result = await db.execute(select(Session).where(Session.id == session_id))
     session = result.scalar_one_or_none()
     if session is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Session not found")
@@ -33,6 +33,6 @@ async def get_owned_document(
     doc = result.scalar_one_or_none()
     if doc is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Document not found")
-    if doc.user_id != current_user.id:
+    if doc.uploaded_by_user_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
     return doc

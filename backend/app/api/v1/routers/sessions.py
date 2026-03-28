@@ -98,6 +98,8 @@ async def create_session(
         user_id=current_user.id,
         title=body.title,
         planned_duration_minutes=body.planned_duration_minutes,
+        flashcard_deck_id=body.flashcard_deck_id,
+        quiz_set_id=body.quiz_set_id,
     )
     db.add(session)
     await db.flush()

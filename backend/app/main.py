@@ -11,9 +11,11 @@ from sqlalchemy import text
 
 import app.models  # noqa: F401 — registers all ORM models before create_all
 from app.core.config import get_settings
+from app.core.db_setup import AsyncSessionLocal, Base, engine
 from app.core.limiter import limiter
-from app.core.db_setup import Base, engine
 from app.core.migrations import run_pre_migrations, run_post_migrations
+from app.seeds.rbac_seed import seed_rbac
+from app.seeds.prompt_seed import seed_prompts
 from app.api.v1.routers.auth.auth import router as auth_router
 from app.api.v1.routers.user import router as user_router
 from app.api.v1.routers.subjects import router as subjects_router
@@ -29,6 +31,10 @@ from app.api.v1.routers.flashcards import router as flashcard_reviews_router
 from app.api.v1.routers.quiz_sets import router as quiz_sets_router
 from app.api.v1.routers.notes import router as notes_router
 from app.api.v1.routers.dashboard import router as dashboard_router
+from app.api.v1.routers.admin import router as admin_router
+from app.api.v1.routers.ai_generate import router as ai_generate_router
+from app.api.v1.routers.prompts_admin import router as prompts_admin_router
+from app.api.v1.routers.pipeline import router as pipeline_router
 
 PREFIX = "/api/v1"
 
@@ -42,6 +48,10 @@ async def lifespan(app: FastAPI):
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("SELECT 1"))  # verify connectivity
     await run_post_migrations(engine)
+    # Idempotent RBAC seed: creates default roles and permissions if absent.
+    async with AsyncSessionLocal() as db:
+        await seed_rbac(db)
+        await seed_prompts(db)
     logger.info("Database ready (env=%s)", settings.environment)
     yield
     await engine.dispose()
@@ -100,6 +110,10 @@ app.include_router(flashcard_reviews_router, prefix=PREFIX)
 app.include_router(quiz_sets_router, prefix=PREFIX)
 app.include_router(notes_router, prefix=PREFIX)
 app.include_router(dashboard_router, prefix=PREFIX)
+app.include_router(admin_router, prefix=PREFIX)
+app.include_router(ai_generate_router, prefix=PREFIX)
+app.include_router(prompts_admin_router, prefix=PREFIX)
+app.include_router(pipeline_router, prefix=PREFIX)
 
 
 @app.get("/health", tags=["health"])

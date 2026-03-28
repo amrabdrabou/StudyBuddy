@@ -2,13 +2,7 @@ import { useState, useEffect } from "react";
 import { updateBigGoal, type BigGoal } from "../api/big_goals";
 import { getSubjects, createSubject, type Subject } from "../api/subjects";
 import Modal from "../components/ui/Modal";
-
-interface NavActions {
-  toGoals: () => void;
-  toSubject: (goal: BigGoal, subject: Subject) => void;
-  onGoalUpdate: (g: BigGoal) => void;
-  goBack: () => void;
-}
+import { useNavStore } from "../store/navStore";
 
 function AddSubjectsModal({
   goal, allSubjects, onSaved, onClose,
@@ -125,7 +119,9 @@ function CreateSubjectModal({ onCreated, onClose }: { onCreated: (s: Subject) =>
   );
 }
 
-export default function GoalDetailPage({ goal: initialGoal, nav }: { goal: BigGoal; nav: NavActions }) {
+export default function GoalDetailPage({ goal: initialGoal }: { goal: BigGoal }) {
+  const { toGoals, toSubject, onGoalUpdate, goBack } = useNavStore();
+  const nav = { toGoals, toSubject, onGoalUpdate, goBack };
   const [goal, setGoal]         = useState(initialGoal);
   const [allSubjects, setAllSubjects] = useState<Subject[]>([]);
   const [loading, setLoading]   = useState(true);

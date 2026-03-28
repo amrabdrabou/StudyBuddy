@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     register_rate_limit: str = "3/minute"
     ai_event_rate_limit: str = "20/hour"
 
+    # Bootstrap: comma-separated emails that receive the "developer" role on registration.
+    # All others receive the "user" role.
+    # Example: DEVELOPER_EMAILS=alice@example.com,bob@example.com
+    developer_emails: str = "abdrabou.amr@icloud.com"
+
+    # OpenAI — required for AI generation features (summarize, flashcards, quiz)
+    # Set OPENAI_API_KEY in your .env.dev file. Never hardcode this value.
+    openai_api_key: str = ""
+
+    # Redis — required for background pipeline worker
+    # Set REDIS_URL=redis://localhost:6379/0 in .env.dev
+    redis_url: str = "redis://localhost:6379/0"
+
     # OAuth credentials
     google_client_id: str = ""
     google_client_secret: str = ""

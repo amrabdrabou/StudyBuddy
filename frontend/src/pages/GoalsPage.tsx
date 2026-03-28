@@ -5,11 +5,7 @@ import {
 } from "../api/big_goals";
 import { getSubjects, type Subject } from "../api/subjects";
 import Modal from "../components/ui/Modal";
-
-// Nav actions interface
-interface NavActions {
-  toGoal: (g: BigGoal) => void;
-}
+import { useNavStore } from "../store/navStore";
 
 function statusBadge(status: BigGoalStatus) {
   const map: Record<string, string> = {
@@ -27,7 +23,8 @@ const FILTER_OPTIONS = ["all","active","paused","completed","overdue"] as const;
 const PRESET_COLORS = ["#6366f1","#8b5cf6","#ec4899","#f59e0b","#10b981","#3b82f6","#ef4444","#06b6d4"];
 const PRESET_ICONS  = ["🎯","📚","🔬","📐","🧠","💡","🚀","🏆","✍️","📝","💻","🎓"];
 
-export default function GoalsPage({ nav }: { nav: NavActions }) {
+export default function GoalsPage() {
+  const { toGoal } = useNavStore();
   const [goals, setGoals]       = useState<BigGoal[]>([]);
   const [subjects, setSubjects] = useState<Subject[]>([]);
   const [loading, setLoading]   = useState(true);
@@ -70,7 +67,7 @@ export default function GoalsPage({ nav }: { nav: NavActions }) {
       setShowCreate(false);
       setTitle(""); setDescription(""); setDeadline(""); setSelectedSubjectIds([]); setCoverColor("#6366f1"); setIcon("🎯");
       await load();
-      nav.toGoal(g);
+      toGoal(g);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setSaving(false); }
   };
@@ -90,20 +87,22 @@ export default function GoalsPage({ nav }: { nav: NavActions }) {
   const subjectMap = Object.fromEntries(subjects.map(s => [s.id, s]));
 
   return (
-    <div className="space-y-8">
+    <div className="flex flex-col gap-8 pb-24">
       {/* Header */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Missions</h1>
-          <p className="text-sm text-gray-500 mt-1">Your big goals — each one drives a learning journey</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">Missions</h1>
+          <p className="text-sm mt-1 text-gray-500">
+            {goals.length} mission{goals.length !== 1 ? "s" : ""} · your big goals driving a learning journey
+          </p>
         </div>
         <button
           onClick={() => setShowCreate(true)}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all active:scale-95"
+          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 flex-shrink-0"
           style={{ background: "linear-gradient(135deg,#4f46e5,#7c3aed)", boxShadow: "0 4px 20px rgba(99,102,241,0.3)" }}
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4"/>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
           </svg>
           New Mission
         </button>
@@ -148,7 +147,7 @@ export default function GoalsPage({ nav }: { nav: NavActions }) {
             return (
               <div
                 key={g.id}
-                onClick={() => nav.toGoal(g)}
+                onClick={() => toGoal(g)}
                 className="relative overflow-hidden rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] hover:shadow-xl group"
                 style={{ background: `${color}0a`, borderColor: `${color}25` }}
               >
@@ -234,6 +233,7 @@ export default function GoalsPage({ nav }: { nav: NavActions }) {
           })}
         </div>
       )}
+
 
       {/* Create Mission Modal */}
       {showCreate && (

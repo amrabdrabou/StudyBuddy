@@ -9,7 +9,7 @@ export interface Document {
   workspace_id: string;
   uploaded_by_user_id: string;
   original_filename: string;
-  storage_path: string;
+  // storage_path is not exposed by the backend API (server-side only)
   mime_type: string;
   file_size: number;
   status: DocumentStatus;
@@ -41,9 +41,13 @@ export async function uploadDocument(workspaceId: string, file: File): Promise<D
 
 export interface DocumentContent {
   raw_text: string | null;
+  pages_json: string | null;
   summary: string | null;
-  word_count: number | null;
   page_count: number | null;
+  word_count: number | null;
+  language: string | null;
+  extraction_engine: string | null;
+  extracted_at: string | null;
 }
 
 export async function getDocumentContent(workspaceId: string, documentId: string): Promise<DocumentContent> {

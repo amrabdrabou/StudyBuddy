@@ -18,7 +18,7 @@ export interface Flashcard {
   back_content: string;
   hint: string | null;
   order_index: number;
-  interval_days: number;
+  interval_days: number | null;
   repetitions: number;
   next_review_at: string | null;
   last_reviewed_at: string | null;

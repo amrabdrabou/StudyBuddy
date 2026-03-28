@@ -15,6 +15,8 @@ export interface Session {
   productivity_rating: number | null;
   notes_text: string | null;
   micro_goal_ids: string[];
+  flashcard_deck_id: string | null;
+  quiz_set_id: string | null;
   created_at: string;
   updated_at: string;
 }

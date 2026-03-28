@@ -1,9 +1,12 @@
 """MicroGoal router — CRUD for workspace micro goals."""
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -78,9 +81,20 @@ async def update_micro_goal(
     _: Workspace = Depends(get_workspace),
 ):
     mg = await _get_micro_goal_or_404(micro_goal_id, workspace_id, db)
-    apply_updates(mg, body.model_dump(exclude_unset=True))
+    updates = body.model_dump(exclude_unset=True)
+    status_changed = "status" in updates and updates["status"] != mg.status
+    apply_updates(mg, updates)
     await db.commit()
     await db.refresh(mg)
+
+    # Recalculate mission progress whenever a micro-goal's status changes
+    if status_changed:
+        try:
+            from app.services.system.progress_calculator import recalculate_mission_progress
+            await recalculate_mission_progress(workspace_id, db)
+        except Exception:
+            logger.warning("Failed to recalculate mission progress for workspace %s", workspace_id)
+
     return mg
 
 

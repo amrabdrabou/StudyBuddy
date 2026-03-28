@@ -1,5 +1,7 @@
 import { authFetch } from "./client";
 
+// ── Types ──────────────────────────────────────────────────────────────────────
+
 export interface QuizSet {
   id: string;
   workspace_id: string;
@@ -14,8 +16,9 @@ export interface QuizSet {
 export interface QuizOption {
   id: string;
   question_id: string;
-  text: string;
+  option_text: string;   // backend: QuizOptionResponse.option_text
   is_correct: boolean;
+  order_index: number;
 }
 
 export interface QuizQuestion {
@@ -23,8 +26,13 @@ export interface QuizQuestion {
   quiz_set_id: string;
   question_text: string;
   question_type: string;
+  correct_answer: string | null;
+  explanation: string | null;
+  difficulty: string;
   order_index: number;
+  ai_generated: boolean;
   options: QuizOption[];
+  created_at: string;
 }
 
 export type AttemptStatus = "in_progress" | "completed" | "abandoned" | "timed_out";
@@ -37,10 +45,22 @@ export interface QuizAttempt {
   score_pct: number | null;
   time_limit_minutes: number | null;
   started_at: string;
-  completed_at: string | null;
+  ended_at: string | null;   // backend: QuizAttemptResponse.ended_at
+  created_at: string;
+  updated_at: string;
 }
 
-// ── Quiz Sets ─────────────────────────────────────────────────────────────────
+export interface QuizAttemptAnswer {
+  id: string;
+  attempt_id: string;
+  question_id: string;
+  selected_option_id: string | null;
+  free_text_answer: string | null;
+  is_correct: boolean | null;
+  answered_at: string;
+}
+
+// ── Quiz Sets ──────────────────────────────────────────────────────────────────
 
 export async function getQuizSets(workspaceId: string): Promise<QuizSet[]> {
   const res = await authFetch(`/workspaces/${workspaceId}/quiz-sets/`);
@@ -74,14 +94,14 @@ export async function deleteQuizSet(workspaceId: string, quizSetId: string): Pro
   await authFetch(`/workspaces/${workspaceId}/quiz-sets/${quizSetId}`, { method: "DELETE" });
 }
 
-// ── Questions ─────────────────────────────────────────────────────────────────
+// ── Questions ──────────────────────────────────────────────────────────────────
 
 export async function getQuestions(workspaceId: string, quizSetId: string): Promise<QuizQuestion[]> {
   const res = await authFetch(`/workspaces/${workspaceId}/quiz-sets/${quizSetId}/questions`);
   return res.json();
 }
 
-// ── Attempts ──────────────────────────────────────────────────────────────────
+// ── Attempts ───────────────────────────────────────────────────────────────────
 
 export async function getAttempts(workspaceId: string, quizSetId: string): Promise<QuizAttempt[]> {
   const res = await authFetch(`/workspaces/${workspaceId}/quiz-sets/${quizSetId}/attempts`);
@@ -104,11 +124,26 @@ export async function updateAttempt(
   workspaceId: string,
   quizSetId: string,
   attemptId: string,
-  data: { status?: AttemptStatus; score_pct?: number; completed_at?: string }
+  data: { status?: AttemptStatus; score_pct?: number; ended_at?: string }  // ended_at, not completed_at
 ): Promise<QuizAttempt> {
   const res = await authFetch(
     `/workspaces/${workspaceId}/quiz-sets/${quizSetId}/attempts/${attemptId}`,
     { method: "PATCH", body: JSON.stringify(data) }
+  );
+  return res.json();
+}
+
+// ── Attempt Answers ────────────────────────────────────────────────────────────
+
+export async function submitAnswer(
+  workspaceId: string,
+  quizSetId: string,
+  attemptId: string,
+  data: { question_id: string; selected_option_id?: string; free_text_answer?: string }
+): Promise<QuizAttemptAnswer> {
+  const res = await authFetch(
+    `/workspaces/${workspaceId}/quiz-sets/${quizSetId}/attempts/${attemptId}/answers`,
+    { method: "POST", body: JSON.stringify(data) }
   );
   return res.json();
 }

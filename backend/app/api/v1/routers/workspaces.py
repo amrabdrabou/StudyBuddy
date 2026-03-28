@@ -1,9 +1,12 @@
 """Workspace router — CRUD for user-owned workspaces."""
 from __future__ import annotations
 
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
+
+logger = logging.getLogger(__name__)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -54,6 +57,14 @@ async def create_workspace(
     db.add(workspace)
     await db.commit()
     await db.refresh(workspace)
+
+    # Emit pipeline event so micro-goals and progress are seeded
+    try:
+        from app.services.pipeline.events import emit_workspace_created
+        emit_workspace_created(workspace.id)
+    except Exception:
+        logger.warning("Failed to emit workspace.created event for workspace %s", workspace.id)
+
     return workspace
 
 

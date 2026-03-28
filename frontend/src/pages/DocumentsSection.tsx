@@ -4,7 +4,6 @@ import { getWorkspaces, type Workspace } from "../api/workspaces";
 import Modal from "../components/ui/Modal";
 import ErrorBanner from "../components/ui/ErrorBanner";
 import SkeletonGrid from "../components/ui/SkeletonGrid";
-import WorkspacePicker from "../components/ui/WorkspacePicker";
 import DocumentCard from "../components/documents/DocumentCard";
 import { fmtSize } from "../components/ui/utils";
 
@@ -100,25 +99,44 @@ export default function DocumentsSection() {
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-8 pb-24">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Documents</h1>
-          <p className="text-gray-500 text-sm mt-1">{docs.length} document{docs.length !== 1 ? "s" : ""}</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">Documents</h1>
+          <p className="text-sm mt-1 text-gray-500">{docs.length} document{docs.length !== 1 ? "s" : ""} · upload and manage your study files</p>
         </div>
-        <div className="flex items-center gap-3">
-          {workspaces.length > 1 && (
-            <WorkspacePicker workspaces={workspaces} selected={workspaceId} onSelect={id => { setWorkspaceId(id); }} />
-          )}
-          {workspaceId && (
-            <button onClick={() => setShowUpload(true)}
-              className="bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
-              Upload
-            </button>
-          )}
-        </div>
+        {workspaceId && (
+          <button
+            onClick={() => setShowUpload(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+            style={{ background: "linear-gradient(135deg,#0891b2,#22d3ee)", boxShadow: "0 4px 20px rgba(6,182,212,0.3)" }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+            </svg>
+            Upload Document
+          </button>
+        )}
       </div>
+
+      {/* Scrollable workspace tabs */}
+      {workspaces.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {workspaces.map(ws => (
+            <button
+              key={ws.id}
+              onClick={() => setWorkspaceId(ws.id)}
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={workspaceId === ws.id
+                ? { background: "rgba(6,182,212,0.15)", color: "#22d3ee", border: "1px solid rgba(6,182,212,0.3)" }
+                : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.08)" }
+              }
+            >
+              {ws.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
@@ -156,7 +174,8 @@ export default function DocumentsSection() {
               </div>
               {filter === "all" && (
                 <button onClick={() => setShowUpload(true)}
-                  className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-2xl font-bold transition-colors">
+                  className="px-6 py-3 rounded-2xl font-bold text-white transition-colors"
+                  style={{ background: "#0891b2" }}>
                   Upload First Document
                 </button>
               )}
@@ -170,6 +189,7 @@ export default function DocumentsSection() {
           )}
         </>
       )}
+
 
       {showUpload && (
         <Modal title="Upload Document" onClose={() => { setShowUpload(false); setUploadFile(null); setUploadErr(null); }}>

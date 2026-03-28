@@ -2,6 +2,12 @@
 SQLAlchemy ORM model registry — new architecture.
 Import order: leaf models first so SQLAlchemy can resolve forward references.
 """
+# ── RBAC (no FK deps — must come before User) ─────────────────────────────────
+from app.models.permission import Permission  # noqa: F401
+from app.models.role import Role  # noqa: F401
+from app.models.role_permission import RolePermission  # noqa: F401
+from app.models.user_role import UserRole  # noqa: F401
+
 # ── Auth & Users ───────────────────────────────────────────────────────────────
 from app.models.user import User  # noqa: F401
 from app.models.token import Token  # noqa: F401
@@ -27,6 +33,9 @@ from app.models.session_micro_goal import SessionMicroGoal  # noqa: F401
 # ── Layer 5: AI ──────────────────────────────────────────────────────────────
 from app.models.ai_job import AIJob  # noqa: F401
 from app.models.ai_chat_message import AIChatMessage  # noqa: F401
+from app.models.prompt import Prompt  # noqa: F401
+from app.models.llm_log import LLMLog  # noqa: F401
+from app.models.pipeline_run import PipelineRun  # noqa: F401
 
 # ── Layer 6: Flashcards & Quizzes ────────────────────────────────────────────
 from app.models.flashcard_deck import FlashcardDeck  # noqa: F401
@@ -42,12 +51,13 @@ from app.models.quiz_attempt_answer import QuizAttemptAnswer  # noqa: F401
 from app.models.note import Note  # noqa: F401
 
 __all__ = [
+    "Permission", "Role", "RolePermission", "UserRole",
     "User", "Token",
     "Subject", "BigGoal", "BigGoalSubject",
     "Workspace",
     "Document", "DocumentContent", "DocumentChunk",
     "MicroGoal", "Session", "SessionMicroGoal",
-    "AIJob", "AIChatMessage",
+    "AIJob", "AIChatMessage", "Prompt", "LLMLog", "PipelineRun",
     "FlashcardDeck", "Flashcard", "FlashcardReview",
     "QuizSet", "QuizQuestion", "QuizOption", "QuizAttempt", "QuizAttemptAnswer",
     "Note",

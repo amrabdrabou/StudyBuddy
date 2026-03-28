@@ -111,7 +111,7 @@ export default function FlashcardsSection() {
 
   return (
     <div className="flex flex-col gap-8 pb-24">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight" style={{ color: "#fcd34d" }}>
             Flashcard Decks &amp; Review
@@ -120,16 +120,38 @@ export default function FlashcardsSection() {
             {decks.length} deck{decks.length !== 1 ? "s" : ""} · master your material one card at a time
           </p>
         </div>
-        {workspaces.length > 1 && (
-          <div className="flex items-center gap-3">
-            <select value={workspaceId} onChange={e => { setWorkspaceId(e.target.value); }}
-              className="rounded-xl bg-white/[0.08] border border-white/15 px-3 py-2 text-white text-sm
-                         outline-none focus:border-indigo-500 transition [&>option]:bg-slate-800">
-              {workspaces.map(w => <option key={w.id} value={w.id}>{w.title}</option>)}
-            </select>
-          </div>
+        {workspaceId && (
+          <button
+            onClick={() => setShowCreate(true)}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+            style={{ background: "linear-gradient(135deg,#7a42f4,#9d6bff)", boxShadow: "0 4px 20px rgba(122,66,244,0.3)" }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+            </svg>
+            New Deck
+          </button>
         )}
       </div>
+
+      {/* Scrollable workspace tabs */}
+      {workspaces.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {workspaces.map(ws => (
+            <button
+              key={ws.id}
+              onClick={() => setWorkspaceId(ws.id)}
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={workspaceId === ws.id
+                ? { background: "rgba(251,191,36,0.15)", color: "#fcd34d", border: "1px solid rgba(251,191,36,0.3)" }
+                : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.08)" }
+              }
+            >
+              {ws.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
@@ -176,16 +198,6 @@ export default function FlashcardsSection() {
         </div>
       )}
 
-      {workspaceId && (
-        <button onClick={() => setShowCreate(true)}
-          className="fixed bottom-8 right-8 z-50 flex items-center gap-2 px-5 py-3.5 rounded-2xl font-bold text-white shadow-2xl transition-all duration-200 hover:scale-105 active:scale-95"
-          style={{ background: "linear-gradient(135deg,#7a42f4,#9d6bff)", boxShadow: "0 8px 32px rgba(122,66,244,0.45)" }}>
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-          </svg>
-          Create New Deck
-        </button>
-      )}
 
       {showCreate && (
         <Modal title="New Flashcard Deck" onClose={() => setShowCreate(false)}>

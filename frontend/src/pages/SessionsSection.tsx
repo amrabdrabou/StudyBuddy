@@ -151,29 +151,44 @@ const SessionsSection = forwardRef<SessionsSectionHandle, Props>(({ subjects: _s
   };
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col gap-8 pb-24">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-white">Study Sessions</h1>
-          <p className="text-gray-500 text-sm mt-1">{sessions.length} session{sessions.length !== 1 ? "s" : ""}</p>
+          <h1 className="text-3xl font-extrabold tracking-tight text-white">Study Sessions</h1>
+          <p className="text-sm mt-1 text-gray-500">{sessions.length} session{sessions.length !== 1 ? "s" : ""} · track your focused study time</p>
         </div>
-        <div className="flex items-center gap-3">
-          {workspaces.length > 1 && (
-            <select value={workspaceId} onChange={e => setWorkspaceId(e.target.value)}
-              className="rounded-xl bg-white/[0.08] border border-white/15 px-3 py-2 text-white text-sm
-                         outline-none focus:border-emerald-500 transition [&>option]:bg-slate-800">
-              {workspaces.map(w => <option key={w.id} value={w.id}>{w.title}</option>)}
-            </select>
-          )}
-          {workspaceId && (
-            <button onClick={openCreate}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-xl text-sm font-bold transition-colors flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" /></svg>
-              New Session
-            </button>
-          )}
-        </div>
+        {workspaceId && (
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:scale-105 active:scale-95 flex-shrink-0"
+            style={{ background: "linear-gradient(135deg,#059669,#34d399)", boxShadow: "0 4px 20px rgba(52,211,153,0.3)" }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+            </svg>
+            New Session
+          </button>
+        )}
       </div>
+
+      {/* Scrollable workspace tabs */}
+      {workspaces.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {workspaces.map(ws => (
+            <button
+              key={ws.id}
+              onClick={() => setWorkspaceId(ws.id)}
+              className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+              style={workspaceId === ws.id
+                ? { background: "rgba(52,211,153,0.15)", color: "#34d399", border: "1px solid rgba(52,211,153,0.3)" }
+                : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.08)" }
+              }
+            >
+              {ws.title}
+            </button>
+          ))}
+        </div>
+      )}
 
       {error && <ErrorBanner message={error} onDismiss={() => setError(null)} />}
 
@@ -211,7 +226,8 @@ const SessionsSection = forwardRef<SessionsSectionHandle, Props>(({ subjects: _s
               </div>
               {filter === "all" && (
                 <button onClick={openCreate}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-6 py-3 rounded-2xl font-bold transition-colors">
+                  className="px-6 py-3 rounded-2xl font-bold text-white transition-colors"
+                  style={{ background: "#059669" }}>
                   Start First Session
                 </button>
               )}
@@ -225,6 +241,7 @@ const SessionsSection = forwardRef<SessionsSectionHandle, Props>(({ subjects: _s
           )}
         </>
       )}
+
 
       {/* Create modal */}
       {showCreate && (

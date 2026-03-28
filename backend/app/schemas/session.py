@@ -14,6 +14,8 @@ class SessionCreate(BaseModel):
     title: Optional[str] = Field(None, max_length=300)
     planned_duration_minutes: Optional[int] = Field(None, ge=1, le=480)
     micro_goal_ids: List[uuid.UUID] = Field(default_factory=list)
+    flashcard_deck_id: Optional[uuid.UUID] = None
+    quiz_set_id: Optional[uuid.UUID] = None
 
 
 class SessionUpdate(BaseModel):
@@ -47,6 +49,8 @@ class SessionResponse(BaseModel):
     productivity_rating: Optional[int]
     notes_text: Optional[str]
     micro_goal_ids: List[uuid.UUID] = Field(default_factory=list)
+    flashcard_deck_id: Optional[uuid.UUID] = None
+    quiz_set_id: Optional[uuid.UUID] = None
     created_at: datetime
     updated_at: datetime
 
@@ -69,6 +73,8 @@ class SessionResponse(BaseModel):
             productivity_rating=s.productivity_rating,
             notes_text=s.notes_text,
             micro_goal_ids=[smg.micro_goal_id for smg in (s.session_micro_goals or [])],
+            flashcard_deck_id=s.flashcard_deck_id,
+            quiz_set_id=s.quiz_set_id,
             created_at=s.created_at,
             updated_at=s.updated_at,
         )

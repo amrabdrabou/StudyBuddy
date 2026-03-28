@@ -19,8 +19,10 @@ from app.core.security import (
     verify_password,
 )
 from app.core.limiter import limiter
+from app.models.role import Role
 from app.models.token import Token
 from app.models.user import User
+from app.models.user_role import UserRole
 from app.schemas.auth import TokenOut, RefreshOut
 from app.schemas.user import UserCreate, UserResponse
 
@@ -90,7 +92,18 @@ async def register(request: Request, payload: UserCreate, db: AsyncSession = Dep
     await db.commit()
     await db.refresh(user)
 
-    logger.info("REGISTER user_id=%s email=%s", user.id, user.email)
+    # Determine which role to assign based on DEVELOPER_EMAILS config.
+    # Emails are stored and compared in lowercase to avoid case-sensitivity issues.
+    developer_emails = {e.strip().lower() for e in settings.developer_emails.split(",") if e.strip()}
+    role_name = "developer" if payload.email.strip().lower() in developer_emails else "user"
+
+    role_result = await db.execute(select(Role).where(Role.name == role_name))
+    assigned_role = role_result.scalar_one_or_none()
+    if assigned_role is not None:
+        db.add(UserRole(user_id=user.id, role_id=assigned_role.id))
+        await db.commit()
+
+    logger.info("REGISTER user_id=%s email=%s role=%s", user.id, user.email, role_name)
     return user
 
 
