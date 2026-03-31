@@ -164,9 +164,7 @@ export default function GoalsPage() {
             key={g.id}
             goal={g}
             subjects={subjects}
-            onEdit={handleEdit}
             onDelete={handleDelete}
-            onSetupWorkspace={setSetupGoal}
             onSelect={toGoal}
             onSubjectSelect={toSubject}
             onRename={g => { setRenameError(""); setRenameTarget(g); }}

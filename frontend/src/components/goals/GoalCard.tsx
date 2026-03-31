@@ -39,12 +39,10 @@ export function SubjectProgressCircle({ progress, color }: { progress: number; c
   );
 }
 
-export default function GoalCard({ goal, subjects, onEdit, onDelete, onSetupWorkspace, onSelect, onRename, onSubjectSelect }: {
+export default function GoalCard({ goal, subjects, onDelete, onSelect, onRename, onSubjectSelect }: {
   goal: BigGoal;
   subjects: Subject[];
-  onEdit: (g: BigGoal) => void;
   onDelete: (g: BigGoal) => void;
-  onSetupWorkspace: (g: BigGoal) => void;
   onSelect: (g: BigGoal) => void;
   onRename?: (g: BigGoal) => void;
   onSubjectSelect?: (goal: BigGoal, subject: Subject) => void;

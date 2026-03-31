@@ -465,8 +465,6 @@ function StudySessionView({
     quizScorePct,
     timePct,
     contentTotal,
-    allCardsKnown,
-    allQuizCorrect,
     isScore100,
     correctItems,
     motivScorePct,
