@@ -1,4 +1,5 @@
 """Application configuration settings loaded from environment variables."""
+
 import os
 from functools import lru_cache
 
@@ -13,6 +14,7 @@ class Settings(BaseSettings):
     Centralized configuration management using Pydantic.
     Values are automatically populated from environment variables or .env files.
     """
+
     environment: str = "dev"
     database_url: str = ""
     debug: bool = False
@@ -73,7 +75,7 @@ class Settings(BaseSettings):
         if is_prod and self.secret_key == _INSECURE_KEY:
             raise ValueError(
                 "SECRET_KEY must be set to a strong random value in non-dev environments. "
-                "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
+                'Generate one with: python -c "import secrets; print(secrets.token_hex(32))"'
             )
         if len(self.secret_key) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters long.")
