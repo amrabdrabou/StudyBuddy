@@ -3,7 +3,7 @@ import { getDashboard, type RecentSession } from "../api/dashboard";
 import { getBigGoals, type BigGoal } from "../api/big_goals";
 import { getSubjects } from "../api/subjects";
 import { getMe, getToken, type UserResponse } from "../api/auth";
-import { CategorySection, type CardSize, type StudyCardData } from "../components/overview/OverviewStudyCard";
+import { ActionCard, ActionSection } from "../components/overview/ActionCard";
 import { SplineScene } from "../components/ui/splite";
 import { useNavStore } from "../store/navStore";
 
@@ -84,203 +84,37 @@ export default function OverviewSection() {
     );
   }
 
-  // ── Card data ──────────────────────────────────────────────────────────────
+  // ── Derived stats ──────────────────────────────────────────────────────────
 
   const missionsVal   = stats?.active_big_goals_count ?? 0;
   const pendingTasks  = stats?.pending_micro_goals_count ?? 0;
   const missionProgressList = stats?.mission_progress ?? [];
   const avgMissionProgress  = missionProgressList.length > 0
     ? Math.round(missionProgressList.reduce((s, m) => s + m.progress_pct, 0) / missionProgressList.length)
-    : null;
+    : undefined;
 
-  const strategyCards: StudyCardData[] = [
-    {
-      id: "missions",
-      title: "Missions",
-      step: "01",
-      size: "hero" as CardSize,
-      rowSpan: 2,
-      color: "#818cf8",
-      value: missionsVal,
-      sub: missionsVal === 0
-        ? "Create your first mission"
-        : avgMissionProgress !== null
-          ? `${avgMissionProgress}% avg progress · ${pendingTasks > 0 ? `${pendingTasks} pending` : "all caught up ✓"}`
-          : pendingTasks > 0
-            ? `${pendingTasks} task${pendingTasks !== 1 ? "s" : ""} pending`
-            : "All caught up ✓",
-      desc: missionsVal === 0
-        ? "Set your first learning goal"
-        : `${missionsVal} active mission${missionsVal !== 1 ? "s" : ""}`,
-      onClick: toGoals,
-      onNew: toGoals,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-        </svg>
-      ),
-    },
-    {
-      id: "subjects",
-      title: "Subjects",
-      step: "02",
-      size: "default" as CardSize,
-      color: "#a78bfa",
-      value: stats?.subjects_count ?? 0,
-      sub: (stats?.subjects_count ?? 0) === 0 ? "None yet" : `${stats?.subjects_count} tracked`,
-      desc: "Topics to master",
-      onClick: toSubjectsView,
-      onNew: toSubjectsView,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-        </svg>
-      ),
-    },
-    {
-      id: "workspaces",
-      title: "Workspaces",
-      step: "03",
-      size: "compact" as CardSize,
-      color: "#c084fc",
-      value: stats?.active_workspaces_count ?? 0,
-      sub: (stats?.active_workspaces_count ?? 0) > 0 ? "Currently active" : "None active",
-      desc: "Study environments",
-      onClick: toWorkspacesView,
-      onNew: toWorkspacesView,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-      ),
-    },
-  ];
-
-  const resourceCards: StudyCardData[] = [
-    {
-      id: "documents",
-      title: "Documents",
-      step: "04",
-      size: "hero" as CardSize,
-      color: "#fb923c",
-      value: stats?.documents_count ?? 0,
-      sub: (stats?.documents_count ?? 0) > 0 ? "Ready for AI" : "Upload to start",
-      desc: "Uploaded materials",
-      onClick: toDocumentsView,
-      onNew: toDocumentsView,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-      ),
-    },
-    {
-      id: "notes",
-      title: "Notes",
-      step: "05",
-      size: "compact" as CardSize,
-      color: "#f59e0b",
-      value: stats?.notes_count ?? 0,
-      sub: (stats?.notes_count ?? 0) > 0 ? `${stats?.notes_count} saved` : "Start writing",
-      desc: "Captured insights",
-      onClick: toNotesView,
-      onNew: toNotesView,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-        </svg>
-      ),
-    },
-  ];
-
-  const practiceCards: StudyCardData[] = [
-    {
-      id: "sessions",
-      title: "Sessions",
-      step: "06",
-      size: "hero" as CardSize,
-      rowSpan: 2,
-      color: "#34d399",
-      value: stats?.recent_sessions?.length ?? 0,
-      sub: lastLabel ? `Last · ${lastLabel}` : "No sessions yet",
-      desc: "Study time logged",
-      onClick: toSessionsView,
-      onNew: toSessionsView,
-      icon: (
-        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-          <path d="M8 5v14l11-7z" />
-        </svg>
-      ),
-    },
-    {
-      id: "flashcards",
-      title: "Flashcards",
-      step: "07",
-      size: "default" as CardSize,
-      color: "#2dd4bf",
-      value: stats?.flashcard_decks_count ?? 0,
-      sub: (stats?.flashcard_decks_count ?? 0) > 0 ? "Ready to review" : "Generate from docs",
-      desc: "AI-generated decks",
-      onClick: toFlashcardsView,
-      onNew: toFlashcardsView,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-        </svg>
-      ),
-    },
-    {
-      id: "quizsets",
-      title: "Quiz Sets",
-      step: "08",
-      size: "compact" as CardSize,
-      color: "#22d3ee",
-      value: stats?.quiz_sets_count ?? 0,
-      sub: (stats?.quiz_sets_count ?? 0) > 0 ? "Test yourself" : "Create a quiz",
-      desc: "Knowledge tests",
-      onClick: toQuizzesView,
-      onNew: toQuizzesView,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-        </svg>
-      ),
-    },
-  ];
+  const subjectsVal   = stats?.subjects_count ?? 0;
+  const workspacesVal = stats?.active_workspaces_count ?? 0;
+  const documentsVal  = stats?.documents_count ?? 0;
+  const notesVal      = stats?.notes_count ?? 0;
+  const sessionsVal   = stats?.recent_sessions?.length ?? 0;
+  const flashcardsVal = stats?.flashcard_decks_count ?? 0;
+  const quizzesVal    = stats?.quiz_sets_count ?? 0;
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div className="pb-28" style={{ fontFamily: "'Lexend', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&display=swap');
-
-        @keyframes heroReveal {
-          from { opacity: 0; transform: translateY(10px); }
-          to   { opacity: 1; transform: translateY(0);    }
-        }
-        @keyframes chipIn {
-          from { opacity: 0; transform: translateX(-8px); }
-          to   { opacity: 1; transform: translateX(0);    }
-        }
         @keyframes catSlideUp {
           from { opacity: 0; transform: translateY(24px); }
           to   { opacity: 1; transform: translateY(0);    }
         }
-
-        .hero-content { animation: heroReveal 0.7s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
-        .chip-in      { animation: chipIn 0.5s cubic-bezier(0.16,1,0.3,1) both; }
-        .cat-section  { animation: catSlideUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
-
+        .cat-section { animation: catSlideUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
       `}</style>
 
       {/* ── Hero card ── */}
-      <div
-        className="w-full mb-8 relative"
-        style={{ minHeight: 520 }}
-      >
-
-        {/* Full-width content with robot floating on top */}
+      <div className="w-full mb-8 relative" style={{ minHeight: 520 }}>
         <div className="relative" style={{ minHeight: 520 }}>
 
           {/* Content — full width, sits behind the robot */}
@@ -434,72 +268,154 @@ export default function OverviewSection() {
               className="absolute inset-0 w-full h-full"
             />
           </div>
-
         </div>
       </div>
 
-      {/* ── Category sections ── */}
+      {/* ── Action card sections ── */}
       <div className="mx-auto px-8 pb-6" style={{ maxWidth: "89.6rem" }}>
-      <div className="space-y-6">
+        <div className="space-y-8">
 
-        {/* Strategy — full width pipeline */}
-        <div className="cat-section" style={{ animationDelay: "0.05s" }}>
-          <CategorySection
-            label="Strategy"
-            tagline="Define goals, organise subjects and set up workspaces"
-            color="#818cf8"
-            gridCols="1fr 1fr"
-            cards={strategyCards}
-            icon={
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75"
-                  d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
-              </svg>
-            }
-          />
-        </div>
+          {/* ── Strategy ── */}
+          <div className="cat-section" style={{ animationDelay: "0.05s" }}>
+            <ActionSection
+              label="Strategy"
+              tagline="Define goals, organise subjects and set up workspaces"
+              color="#818cf8"
+              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" /></svg>}
+            >
+              <div className="grid grid-cols-3 gap-4">
+                <ActionCard
+                  color="#818cf8"
+                  icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>}
+                  title="Missions"
+                  description={missionsVal === 0 ? "Set your first learning goal" : `${missionsVal} active`}
+                  metric={missionsVal}
+                  status={missionsVal === 0
+                    ? "Create your first mission"
+                    : pendingTasks > 0
+                      ? `${pendingTasks} task${pendingTasks !== 1 ? "s" : ""} pending`
+                      : "All caught up"}
+                  progress={avgMissionProgress}
+                  ctaLabel={missionsVal === 0 ? "Create Mission" : "View Missions"}
+                  onAction={toGoals}
+                  onNew={toGoals}
+                />
+                <ActionCard
+                  color="#a78bfa"
+                  icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>}
+                  title="Subjects"
+                  description="Topics to master"
+                  metric={subjectsVal}
+                  status={subjectsVal === 0 ? "None yet" : `${subjectsVal} tracked`}
+                  ctaLabel="View Subjects"
+                  onAction={toSubjectsView}
+                  onNew={toSubjectsView}
+                />
+                <ActionCard
+                  color="#10B981"
+                  icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>}
+                  title="Workspaces"
+                  description="Study environments"
+                  metric={workspacesVal}
+                  status={workspacesVal > 0 ? "Currently active" : "None active"}
+                  ctaLabel="View Workspaces"
+                  onAction={toWorkspacesView}
+                  onNew={toWorkspacesView}
+                />
+              </div>
+            </ActionSection>
+          </div>
 
-        {/* Thin divider */}
-        <div style={{ height: 1, background: "rgba(255,255,255,0.04)" }} />
+          <div style={{ height: 1, background: "rgba(255,255,255,0.04)" }} />
 
-        {/* Resources + Practice — side by side */}
-        <div className="cat-section grid gap-8" style={{ animationDelay: "0.15s", gridTemplateColumns: "1fr 2fr" }}>
-          <CategorySection
-            label="Resources"
-            tagline="Documents and notes for AI"
-            color="#f59e0b"
-            gridCols="1fr"
-            cards={resourceCards}
-            icon={
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75"
-                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-              </svg>
-            }
-          />
+          {/* ── Resources + Practice side-by-side ── */}
+          <div className="cat-section grid gap-8" style={{ animationDelay: "0.15s", gridTemplateColumns: "1fr 2fr" }}>
 
-          {/* Vertical separator */}
-          <div className="flex gap-8">
-            <div style={{ width: 1, background: "rgba(255,255,255,0.04)", flexShrink: 0 }} />
-            <div className="flex-1">
-              <CategorySection
-                label="Practice"
-                tagline="Sessions, flashcards and quizzes"
-                color="#34d399"
-                gridCols="1fr 1fr"
-                cards={practiceCards}
-                icon={
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75"
-                      d="M13 10V3L4 14h7v7l9-11h-7z" />
-                  </svg>
-                }
-              />
+            {/* Resources */}
+            <ActionSection
+              label="Resources"
+              tagline="Documents and notes for AI"
+              color="#f59e0b"
+              icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" /></svg>}
+            >
+              <div className="grid grid-cols-1 gap-4">
+                <ActionCard
+                  color="#fb923c"
+                  icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>}
+                  title="Documents"
+                  description="Uploaded materials"
+                  metric={documentsVal}
+                  status={documentsVal > 0 ? "Ready for AI" : "Upload to start"}
+                  ctaLabel="View Documents"
+                  onAction={toDocumentsView}
+                  onNew={toDocumentsView}
+                />
+                <ActionCard
+                  color="#f59e0b"
+                  icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>}
+                  title="Notes"
+                  description="Captured insights"
+                  metric={notesVal}
+                  status={notesVal > 0 ? `${notesVal} saved` : "Start writing"}
+                  ctaLabel="View Notes"
+                  onAction={toNotesView}
+                  onNew={toNotesView}
+                />
+              </div>
+            </ActionSection>
+
+            {/* Vertical separator + Practice */}
+            <div className="flex gap-8">
+              <div style={{ width: 1, background: "rgba(255,255,255,0.04)", flexShrink: 0 }} />
+              <div className="flex-1">
+                <ActionSection
+                  label="Practice"
+                  tagline="Sessions, flashcards and quizzes"
+                  color="#34d399"
+                  icon={<svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>}
+                >
+                  <div className="grid grid-cols-2 gap-4" style={{ gridAutoRows: "minmax(0, auto)" }}>
+                    <ActionCard
+                      color="#34d399"
+                      icon={<svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>}
+                      title="Sessions"
+                      description="Study time logged"
+                      metric={sessionsVal}
+                      status={lastLabel ? `Last session · ${lastLabel}` : "No sessions yet"}
+                      ctaLabel="Start Session"
+                      onAction={toSessionsView}
+                      onNew={toSessionsView}
+                      span
+                    />
+                    <ActionCard
+                      color="#2dd4bf"
+                      icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" /></svg>}
+                      title="Flashcards"
+                      description="AI-generated decks"
+                      metric={flashcardsVal}
+                      status={flashcardsVal > 0 ? "Ready to review" : "Generate from docs"}
+                      ctaLabel="Review Cards"
+                      onAction={toFlashcardsView}
+                      onNew={toFlashcardsView}
+                    />
+                    <ActionCard
+                      color="#22d3ee"
+                      icon={<svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" /></svg>}
+                      title="Quiz Sets"
+                      description="Knowledge tests"
+                      metric={quizzesVal}
+                      status={quizzesVal > 0 ? "Test yourself" : "Create a quiz"}
+                      ctaLabel="Take Quiz"
+                      onAction={toQuizzesView}
+                      onNew={toQuizzesView}
+                    />
+                  </div>
+                </ActionSection>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      </div>{/* end max-w-5xl */}
     </div>
   );
 }

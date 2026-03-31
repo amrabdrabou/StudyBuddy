@@ -6,25 +6,25 @@ export type { NavView, NavState } from "../../store/navStore";
 
 const SPRING    = "cubic-bezier(0.25, 1.1, 0.4, 1)";
 const RAIL_W    = 56;
-const PANEL_W   = 224;
+const PANEL_W   = 240;
 const BG        = "#070d18";
 const DIVIDER   = "rgba(255,255,255,0.06)";
 const DASHBOARD_HOME_SPLASH_EVENT = "studybuddy:dashboard-home-splash";
 
 // ── nav data ──────────────────────────────────────────────────────────────────
 const PLAN_STEPS = [
-  { step: "01", label: "Missions",   color: "#818cf8", view: "goals"      as NavView },
-  { step: "02", label: "Subjects",   color: "#a78bfa", view: "subjects"   as NavView },
-  { step: "03", label: "Workspaces", color: "#10B981", view: "workspaces" as NavView },
-  { step: "04", label: "Documents",  color: "#22d3ee", view: "documents"  as NavView },
-  { step: "05", label: "Summaries",  color: "#06b6d4", view: "summary"    as NavView },
-  { step: "06", label: "Road Map",   color: "#8b5cf6", view: "roadmap"    as NavView },
+  { label: "Missions",   color: "#818cf8", view: "goals"      as NavView },
+  { label: "Subjects",   color: "#a78bfa", view: "subjects"   as NavView },
+  { label: "Workspaces", color: "#10B981", view: "workspaces" as NavView },
+  { label: "Documents",  color: "#22d3ee", view: "documents"  as NavView },
+  { label: "Summaries",  color: "#06b6d4", view: "summary"    as NavView },
+  { label: "Road Map",   color: "#8b5cf6", view: "roadmap"    as NavView },
 ];
 const STUDY_STEPS = [
-  { step: "07", label: "Sessions",   color: "#34d399", view: "sessions"   as NavView },
-  { step: "08", label: "Flashcards", color: "#f59e0b", view: "flashcards" as NavView },
-  { step: "09", label: "Quiz Sets",  color: "#f97316", view: "quizzes"    as NavView },
-  { step: "10", label: "Notes",      color: "#ec4899", view: "notes"      as NavView },
+  { label: "Sessions",   color: "#34d399", view: "sessions"   as NavView },
+  { label: "Flashcards", color: "#f59e0b", view: "flashcards" as NavView },
+  { label: "Quiz Sets",  color: "#f97316", view: "quizzes"    as NavView },
+  { label: "Notes",      color: "#ec4899", view: "notes"      as NavView },
 ];
 
 const PLAN_VIEWS  = new Set(["goals","goal","subjects","subject","workspaces","workspace","documents","summary","roadmap"]);
@@ -112,16 +112,16 @@ function IcoSignOut() {
 
 // ── NavStep row ───────────────────────────────────────────────────────────────
 function NavRow({ s, isActive, onClick }: {
-  s: { step: string; label: string; color: string; view: NavView };
+  s: { label: string; color: string; view: NavView };
   isActive: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       onClick={onClick}
-      className="relative flex items-center gap-2 w-full px-3 py-2 rounded-lg text-left transition-all"
+      className="relative flex items-center gap-2.5 w-full px-3 py-[7px] rounded-lg text-left transition-all"
       style={{
-        color: isActive ? "white" : "rgba(255,255,255,0.45)",
+        color: isActive ? "white" : "rgba(255,255,255,0.5)",
         background: isActive ? `${s.color}14` : "transparent",
         transitionTimingFunction: SPRING,
         transitionDuration: "300ms",
@@ -133,9 +133,8 @@ function NavRow({ s, isActive, onClick }: {
       {isActive && (
         <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full" style={{ background: s.color }} />
       )}
-      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: s.color, boxShadow: isActive ? `0 0 6px ${s.color}` : "none" }} />
-      <span className="text-[10px] font-bold flex-shrink-0" style={{ color: `${s.color}80` }}>{s.step}</span>
-      <span className="text-xs font-medium truncate">{s.label}</span>
+      <span className="w-[6px] h-[6px] rounded-full flex-shrink-0" style={{ background: s.color, opacity: isActive ? 1 : 0.6, boxShadow: isActive ? `0 0 6px ${s.color}` : "none" }} />
+      <span className="text-[13px] font-medium truncate">{s.label}</span>
     </button>
   );
 }
@@ -312,7 +311,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
               type="button"
               onClick={goHome}
               title="Home"
-              className="text-[15px] font-extrabold tracking-tighter text-white transition-opacity hover:opacity-85"
+              className="text-[16px] font-extrabold tracking-tight text-white transition-opacity hover:opacity-85"
               style={{ fontFamily: "'Lexend',sans-serif" }}
             >
               Study<span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">Buddy</span>
@@ -332,7 +331,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
           {/* Search */}
           <div className="px-3 pb-3 flex-shrink-0">
             <div
-              className="flex items-center gap-2 px-3 h-8 rounded-lg"
+              className="flex items-center gap-2 px-3 h-9 rounded-lg"
               style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${DIVIDER}` }}
             >
               <IcoSearch />
@@ -341,7 +340,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
                 placeholder="Search..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="bg-transparent border-none outline-none text-[12px] text-white placeholder:text-gray-600 w-full"
+                className="bg-transparent border-none outline-none text-[13px] text-white placeholder:text-gray-600 w-full"
                 style={{ fontFamily: "'Lexend',sans-serif" }}
               />
             </div>
@@ -366,7 +365,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
                 <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full" style={{ background: "#818cf8" }} />
               )}
               <span style={{ color: section === "overview" ? "#818cf8" : "rgba(255,255,255,0.3)" }}><IcoHome /></span>
-              <span className="text-xs font-medium">Overview</span>
+              <span className="text-[13px] font-medium">Overview</span>
             </button>
           </div>
 
@@ -374,7 +373,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
 
           {/* Plan section */}
           <div className="px-3 flex-shrink-0">
-            <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-1" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider px-3 mb-1.5" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>
               Plan
             </p>
             <div className="relative">
@@ -384,7 +383,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
                   ? false : navState.view === s.view)} onClick={() => nav(s.view)} />
               ))}
               {planSteps.length === 0 && (
-                <p className="text-[11px] px-3 py-2" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>No results</p>
+                <p className="text-[12px] px-3 py-2" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>No results</p>
               )}
             </div>
           </div>
@@ -393,7 +392,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
 
           {/* Study & Review section */}
           <div className="px-3 flex-shrink-0">
-            <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-1" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>
+            <p className="text-[11px] font-semibold uppercase tracking-wider px-3 mb-1.5" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>
               Study &amp; Review
             </p>
             <div className="relative">
@@ -402,7 +401,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
                 <NavRow key={s.view} s={s} isActive={navState.view === s.view} onClick={() => nav(s.view)} />
               ))}
               {studySteps.length === 0 && (
-                <p className="text-[11px] px-3 py-2" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>No results</p>
+                <p className="text-[12px] px-3 py-2" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>No results</p>
               )}
             </div>
           </div>
@@ -429,7 +428,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
                     <div className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 rounded-r-full" style={{ background: "#818cf8" }} />
                   )}
                   <span style={{ color: section === "groups" ? "#818cf8" : "rgba(255,255,255,0.3)" }}><IcoGroups /></span>
-                  <span className="text-xs font-medium">Study Groups</span>
+                  <span className="text-[13px] font-medium">Study Groups</span>
                 </button>
               </div>
             </>
@@ -440,7 +439,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
             <>
               <div className="mx-3 my-2 h-px flex-shrink-0" style={{ background: DIVIDER }} />
               <div className="px-3 flex-shrink-0">
-                <p className="text-[9px] font-bold uppercase tracking-widest px-3 mb-1" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>
+                <p className="text-[11px] font-semibold uppercase tracking-wider px-3 mb-1.5" style={{ color: "rgba(255,255,255,0.2)", fontFamily: "'Lexend',sans-serif" }}>
                   Current Path
                 </p>
                 <div className="relative">
@@ -503,7 +502,7 @@ export default function Sidebar({ onSignOut }: { onSignOut: () => Promise<void> 
               >
                 {initials}
               </div>
-              <p className="text-xs font-semibold text-white flex-1 truncate" style={{ fontFamily: "'Lexend',sans-serif" }}>
+              <p className="text-[13px] font-semibold text-white flex-1 truncate" style={{ fontFamily: "'Lexend',sans-serif" }}>
                 {displayName}
               </p>
               <button
