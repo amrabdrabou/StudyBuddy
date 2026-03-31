@@ -52,25 +52,22 @@ async def retrieve_context(
     except (ValueError, AttributeError):
         return ""
 
-    docs_result = await db.execute(
-        select(Document).where(
+    rows_result = await db.execute(
+        select(Document, DocumentContent)
+        .outerjoin(DocumentContent, DocumentContent.document_id == Document.id)
+        .where(
             Document.workspace_id == ws_uuid,
             Document.status == "ready",
         )
     )
-    docs = docs_result.scalars().all()
-    if not docs:
+    rows = rows_result.all()
+    if not rows:
         return ""
 
     parts: list[str] = []
     total = 0
 
-    for doc in docs:
-        content_result = await db.execute(
-            select(DocumentContent).where(DocumentContent.document_id == doc.id)
-        )
-        content = content_result.scalar_one_or_none()
-
+    for doc, content in rows:
         text = (content.summary or content.raw_text or "") if content else ""
         if not text:
             continue

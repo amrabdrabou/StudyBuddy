@@ -62,7 +62,6 @@ const COMMANDS: CmdItem[] = [
   { id: "nav-flashcards", label: "Flashcards",       sub: "AI review decks",            color: C.amber,   category: "Navigate",     view: "flashcards" },
   { id: "nav-quizzes",    label: "Quiz Sets",        sub: "Knowledge tests",            color: C.orange,  category: "Navigate",     view: "quizzes"    },
   { id: "nav-notes",      label: "Notes",            sub: "Captured insights",          color: C.pink,    category: "Navigate",     view: "notes"      },
-  { id: "nav-groups",     label: "Study Groups",     sub: "Collaborative sessions",     color: C.indigo,  category: "Navigate",     view: "groups"     },
   { id: "nav-settings",   label: "Settings",         sub: "Account & preferences",      color: C.muted,   category: "Navigate",     view: "settings"   },
   { id: "qa-mission",     label: "New Mission",      sub: "Create a learning goal",     color: C.indigo,  category: "Quick Action", view: "goals"      },
   { id: "qa-session",     label: "Start Session",    sub: "Begin a timed focus block",  color: C.emerald, category: "Quick Action", view: "sessions"   },
@@ -78,7 +77,7 @@ interface Props {
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TopBar({ onSignOut }: Props) {
-  const { navState, navDirect, toGoal, toSubject } = useNavStore();
+  const { navState, navDirect, toGoal, toSubject, toWorkspace, setWorkspaceTab, recentWorkspaces } = useNavStore();
 
   const [user, setUser]               = useState<UserResponse | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -227,6 +226,8 @@ export default function TopBar({ onSignOut }: Props) {
 
   // ── Grouped commands for palette UI ───────────────────────────────────────
 
+  const continueWorkspace = recentWorkspaces[0];
+
   const grouped = useMemo(() => {
     const nav = filtered.filter(c => c.category === "Navigate");
     const qa  = filtered.filter(c => c.category === "Quick Action");
@@ -325,26 +326,22 @@ export default function TopBar({ onSignOut }: Props) {
             New
           </button>
 
-          {/* Notifications */}
-          <button
-            className="relative w-9 h-9 flex items-center justify-center rounded-xl transition-all"
-            style={{ color: C.muted }}
-            onMouseEnter={e => { e.currentTarget.style.background = C.hover; e.currentTarget.style.color = C.text; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; e.currentTarget.style.color = C.muted; }}
-            title="Notifications"
-          >
-            <svg className="w-4.5 h-4.5 w-[18px] h-[18px]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-            </svg>
-            {/* Notification badge */}
-            <span
-              className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
-              style={{ background: C.indigo, boxShadow: `0 0 6px ${C.indigo}` }}
-            />
-          </button>
-
-          {/* Divider */}
-          <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.08)" }} />
+          {continueWorkspace && (
+            <button
+              onClick={() => {
+                toWorkspace(continueWorkspace.goal, continueWorkspace.subject, continueWorkspace.workspace);
+                if (continueWorkspace.tab) setWorkspaceTab(continueWorkspace.tab);
+              }}
+              className="flex items-center gap-1.5 h-9 px-3.5 rounded-xl text-xs font-bold transition-all"
+              style={{ background: "rgba(52,211,153,0.12)", color: C.emerald, border: "1px solid rgba(52,211,153,0.22)" }}
+              title={`Continue ${continueWorkspace.workspace.title}`}
+            >
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              Continue
+            </button>
+          )}
 
           {/* User avatar + dropdown */}
           <div className="relative" ref={menuRef}>

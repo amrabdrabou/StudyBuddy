@@ -7,6 +7,7 @@ export interface Subject {
   color_hex: string | null;
   icon: string | null;
   is_archived: boolean;
+  progress_pct: number;
   created_at: string;
   updated_at: string;
 }

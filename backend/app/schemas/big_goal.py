@@ -74,7 +74,9 @@ class BigGoalResponse(BaseModel):
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_orm_with_subjects(cls, goal: object) -> "BigGoalResponse":
+    def from_orm_with_subjects(
+        cls, goal: object, progress_override: Optional[float] = None
+    ) -> "BigGoalResponse":
         from app.models.big_goal import BigGoal
         g: BigGoal = goal  # type: ignore[assignment]
         data = {
@@ -84,7 +86,7 @@ class BigGoalResponse(BaseModel):
             "description": g.description,
             "status": g.status,
             "deadline": g.deadline,
-            "progress_pct": g.progress_pct,
+            "progress_pct": round(progress_override) if progress_override is not None else 0,
             "subject_ids": [bgs.subject_id for bgs in (g.big_goal_subjects or [])],
             "cover_color": g.cover_color,
             "icon": g.icon,

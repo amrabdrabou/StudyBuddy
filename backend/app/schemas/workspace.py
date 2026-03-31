@@ -33,7 +33,14 @@ class WorkspaceResponse(BaseModel):
     subject_id: uuid.UUID
     title: str
     status: str
+    progress_pct: int = 0
     created_at: datetime
     updated_at: datetime
+    # Content counts — populated by the list endpoint; default 0 for single-fetch endpoints
+    document_count: int = 0
+    flashcard_deck_count: int = 0
+    quiz_set_count: int = 0
+    session_count: int = 0
+    note_count: int = 0
 
     model_config = {"from_attributes": True}

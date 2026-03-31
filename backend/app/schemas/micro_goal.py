@@ -38,6 +38,7 @@ class MicroGoalResponse(BaseModel):
     title: str
     description: Optional[str]
     status: str
+    source: str  # "system" | "ai" | "user"
     deadline: Optional[date]
     order_index: int
     created_at: datetime

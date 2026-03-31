@@ -1,4 +1,5 @@
 import type { Note } from "../../api/notes";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
 
 export default function NoteCard({ note, subjectName, onEdit, onDelete }: {
   note: Note;
@@ -7,11 +8,10 @@ export default function NoteCard({ note, subjectName, onEdit, onDelete }: {
   onDelete: (n: Note) => void;
 }) {
   return (
-    <div className="group bg-white/[0.04] border border-white/[0.08] rounded-2xl p-5 flex flex-col gap-3
-                    hover:bg-white/[0.07] hover:border-violet-500/30 transition-all duration-200">
-      <div className="flex items-start justify-between gap-2">
+    <Card className="group hover:bg-white/[0.07] hover:border-violet-500/30 transition-all duration-200">
+      <CardHeader className="p-5 pb-3">
         <div className="flex-1 min-w-0">
-          <p className="text-white font-semibold leading-snug truncate">{note.title ?? "Untitled"}</p>
+          <CardTitle className="truncate">{note.title ?? "Untitled"}</CardTitle>
           {subjectName && (
             <span className="inline-block mt-1 text-xs px-2 py-0.5 rounded-full bg-indigo-500/15 text-indigo-300 border border-indigo-400/20">
               {subjectName}
@@ -32,16 +32,18 @@ export default function NoteCard({ note, subjectName, onEdit, onDelete }: {
             </svg>
           </button>
         </div>
-      </div>
-      {note.content && (
-        <p className="text-sm text-gray-400 leading-relaxed line-clamp-3">{note.content}</p>
-      )}
-      {!note.content && (
-        <p className="text-sm text-gray-600 italic">No content</p>
-      )}
-      <p className="text-xs text-gray-600 mt-auto">
+      </CardHeader>
+      <CardContent className="space-y-3 p-5 pt-0">
+        {note.content && (
+          <p className="text-sm text-gray-400 leading-relaxed line-clamp-3">{note.content}</p>
+        )}
+        {!note.content && (
+          <p className="text-sm text-gray-600 italic">No content</p>
+        )}
+      </CardContent>
+      <CardFooter className="text-xs text-gray-600 mt-auto">
         {new Date(note.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-      </p>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }

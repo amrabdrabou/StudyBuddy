@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_setup import Base
@@ -50,8 +50,8 @@ class AIJob(Base):
     job_type: Mapped[str] = mapped_column(String(30), nullable=False)
     status: Mapped[str] = mapped_column(String(20), default="queued", nullable=False)
 
-    # Stores the structured output once the job completes (JSON string)
-    result_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Stores the structured output once the job completes
+    result_json: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     error_message: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(

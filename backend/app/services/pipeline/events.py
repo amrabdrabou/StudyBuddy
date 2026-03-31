@@ -31,7 +31,7 @@ def emit_workspace_created(workspace_id: uuid.UUID) -> None:
     """Enqueue initial workspace pipeline (micro-goals + progress)."""
     q = _get_queue()
     if q is None:
-        logger.debug("pipeline: Redis offline, skipping workspace.created for %s", workspace_id)
+        logger.warning("pipeline: Redis offline — workspace.created skipped for %s (micro-goals will not be generated)", workspace_id)
         return
     try:
         from app.services.pipeline.tasks import run_workspace_pipeline
@@ -45,7 +45,7 @@ def emit_document_ready(workspace_id: uuid.UUID, document_id: uuid.UUID) -> None
     """Enqueue document pipeline (summarize → flashcards → quiz → micro-goals → progress)."""
     q = _get_queue()
     if q is None:
-        logger.debug("pipeline: Redis offline, skipping document.ready for doc %s", document_id)
+        logger.warning("pipeline: Redis offline — document.ready skipped for doc %s (AI generation will not run)", document_id)
         return
     try:
         from app.services.pipeline.tasks import run_document_pipeline

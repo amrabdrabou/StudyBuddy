@@ -1,4 +1,5 @@
 import type { FlashcardDeck } from "../../api/flashcards";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "../ui/card";
 
 export const DECK_ICONS = [
   <svg key="brain" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -14,11 +15,12 @@ export const DECK_ICONS = [
   </svg>,
 ];
 
-export default function DeckCard({ deck, index, cardCount, masteredCount, onOpen, onDelete }: {
+export default function DeckCard({ deck, index, cardCount, masteredCount, workspaceTitle, onOpen, onDelete }: {
   deck: FlashcardDeck;
   index: number;
   cardCount: number;
   masteredCount: number;
+  workspaceTitle?: string;
   onOpen: (d: FlashcardDeck) => void;
   onDelete: (d: FlashcardDeck) => void;
 }) {
@@ -26,8 +28,8 @@ export default function DeckCard({ deck, index, cardCount, masteredCount, onOpen
   const icon = DECK_ICONS[index % DECK_ICONS.length];
 
   return (
-    <div
-      className="group relative flex flex-col gap-5 rounded-2xl p-6 cursor-pointer transition-all duration-200
+    <Card
+      className="group relative flex flex-col gap-5 cursor-pointer transition-all duration-200
                  hover:-translate-y-0.5 hover:shadow-[0_8px_32px_rgba(122,66,244,0.18)]"
       style={{ background: "#1a1d2e", border: "1px solid #2a2e45" }}
       onClick={() => onOpen(deck)}
@@ -38,16 +40,24 @@ export default function DeckCard({ deck, index, cardCount, masteredCount, onOpen
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
         </svg>
       </button>
-      <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
-        style={{ background: "rgba(122,66,244,0.2)", color: "#a78bfa" }}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-white font-semibold text-base leading-tight">{deck.title}</p>
-        <p className="text-sm mt-0.5" style={{ color: "#6b7280" }}>{cardCount} Cards</p>
-        {deck.description && <p className="text-xs mt-1 line-clamp-1" style={{ color: "#6b7280" }}>{deck.description}</p>}
-      </div>
-      <div className="flex flex-col gap-1.5">
+      <CardHeader className="flex-col items-start gap-4 p-6 pb-0">
+        <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+          style={{ background: "rgba(122,66,244,0.2)", color: "#a78bfa" }}>
+          {icon}
+        </div>
+        <div>
+          <CardTitle className="text-base">{deck.title}</CardTitle>
+          <p className="text-sm mt-0.5" style={{ color: "#6b7280" }}>{cardCount} Cards</p>
+          {workspaceTitle && (
+            <p className="text-[10px] mt-1 uppercase tracking-wide font-bold" style={{ color: "#9ca3af" }}>
+              {workspaceTitle}
+            </p>
+          )}
+          {deck.description && <p className="text-xs mt-1 line-clamp-1" style={{ color: "#6b7280" }}>{deck.description}</p>}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5 p-6 pt-0">
+        <div className="flex flex-col gap-1.5">
         <div className="flex justify-between text-xs">
           <span style={{ color: "#9ca3af" }}>Progress</span>
           <span style={{ color: "#a78bfa" }} className="font-bold">{pct}%</span>
@@ -56,12 +66,15 @@ export default function DeckCard({ deck, index, cardCount, masteredCount, onOpen
           <div className="h-full rounded-full transition-all duration-700"
             style={{ width: `${pct}%`, background: "linear-gradient(90deg,#7a42f4,#a78bfa)" }} />
         </div>
-      </div>
+        </div>
+      </CardContent>
+      <CardFooter className="pt-0">
       <button onClick={e => { e.stopPropagation(); onOpen(deck); }}
         className="w-full py-2.5 rounded-xl text-sm font-bold transition-all duration-200 mt-auto hover:opacity-90 active:scale-95"
         style={{ background: "rgba(122,66,244,0.25)", color: "#c4b5fd", border: "1px solid rgba(122,66,244,0.4)" }}>
         Review Now
       </button>
-    </div>
+      </CardFooter>
+    </Card>
   );
 }

@@ -51,13 +51,20 @@ class SessionResponse(BaseModel):
     micro_goal_ids: List[uuid.UUID] = Field(default_factory=list)
     flashcard_deck_id: Optional[uuid.UUID] = None
     quiz_set_id: Optional[uuid.UUID] = None
+    flashcard_reviews_count: int = 0
+    quiz_score_pct: Optional[float] = None
     created_at: datetime
     updated_at: datetime
 
     model_config = {"from_attributes": True}
 
     @classmethod
-    def from_orm_with_goals(cls, session: object) -> "SessionResponse":
+    def from_orm_with_goals(
+        cls,
+        session: object,
+        flashcard_reviews_count: int = 0,
+        quiz_score_pct: Optional[float] = None,
+    ) -> "SessionResponse":
         from app.models.session import Session as SessionModel
         s: SessionModel = session  # type: ignore[assignment]
         return cls(
@@ -75,6 +82,8 @@ class SessionResponse(BaseModel):
             micro_goal_ids=[smg.micro_goal_id for smg in (s.session_micro_goals or [])],
             flashcard_deck_id=s.flashcard_deck_id,
             quiz_set_id=s.quiz_set_id,
+            flashcard_reviews_count=flashcard_reviews_count,
+            quiz_score_pct=quiz_score_pct,
             created_at=s.created_at,
             updated_at=s.updated_at,
         )

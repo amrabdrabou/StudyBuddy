@@ -46,5 +46,9 @@ class QuizQuestion(Base):
         "QuizSet", back_populates="questions", lazy="noload"
     )
     options: Mapped[List["QuizOption"]] = relationship(
-        "QuizOption", back_populates="question", cascade="all, delete-orphan", lazy="selectin"
+        "QuizOption",
+        back_populates="question",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+        order_by="QuizOption.order_index",
     )

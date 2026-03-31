@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, SmallInteger, func
 from sqlalchemy.dialects.postgresql import UUID
@@ -25,10 +25,10 @@ class FlashcardReview(Base):
         nullable=False,
         index=True,
     )
-    session_id: Mapped[uuid.UUID] = mapped_column(
+    session_id: Mapped[Optional[uuid.UUID]] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("sessions.id", ondelete="CASCADE"),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
@@ -47,6 +47,6 @@ class FlashcardReview(Base):
     flashcard: Mapped["Flashcard"] = relationship(
         "Flashcard", back_populates="reviews", lazy="noload"
     )
-    session: Mapped["Session"] = relationship(
+    session: Mapped[Optional["Session"]] = relationship(
         "Session", back_populates="flashcard_reviews", lazy="noload"
     )

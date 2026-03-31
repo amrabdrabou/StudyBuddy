@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, UniqueConstraint
+from sqlalchemy import ForeignKey, Numeric, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -32,6 +32,11 @@ class SessionMicroGoal(Base):
         ForeignKey("micro_goals.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
+    )
+    # Contribution weight for weighted-average microgoal progress.
+    # Default 1.0 = equal weight.  Set higher for more important sessions.
+    weight: Mapped[float] = mapped_column(
+        Numeric(5, 4), nullable=False, default=1.0
     )
 
     # ── Relationships ──────────────────────────────────────────────────────────

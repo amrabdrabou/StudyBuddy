@@ -168,7 +168,7 @@ class PromptService:
             user_id=user_id,
             prompt_name="chat",
             prompt_version=version,
-            messages=messages[-3:],  # log only last 3 to keep size sane
+            messages=messages,  # stored as JSONB — full conversation for replay/debug
             variables={"workspace_title": workspace_title},
             response=response_text,
             model_used=model_used,
@@ -198,7 +198,7 @@ class PromptService:
                 user_id=user_id,
                 prompt_name=prompt_name,
                 prompt_version=prompt_version,
-                full_prompt=json.dumps(messages, ensure_ascii=False),
+                full_prompt=messages,  # JSONB — SQLAlchemy serializes the list directly
                 input_variables={k: str(v)[:500] for k, v in variables.items()},
                 response=response,
                 model_used=model_used,

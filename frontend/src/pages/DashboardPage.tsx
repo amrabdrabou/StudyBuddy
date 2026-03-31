@@ -1,11 +1,15 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { getWorkspaces } from "../api/workspaces";
+import { getSubjects } from "../api/subjects";
+import { getBigGoals } from "../api/big_goals";
 import { useNavStore } from "../store/navStore";
 import Sidebar from "../components/layout/Sidebar";
 import TopBar from "../components/layout/TopBar";
 import GoalsPage from "./GoalsPage";
 import GoalDetailPage from "./GoalDetailPage";
 import SubjectDetailPage from "./SubjectDetailPage";
-import WorkspacesSection, { WorkspaceDetail } from "./WorkspacesSection";
+import WorkspacesSection from "./WorkspacesSection";
+import { WorkspaceDetail } from "./WorkspaceDetailPage";
 import OverviewSection from "./OverviewSection";
 import SubjectsSection from "./SubjectsSection";
 import DocumentsSection from "./DocumentsSection";
@@ -17,6 +21,8 @@ import QuizzesSection from "./QuizzesSection";
 import NotesSection from "./NotesSection";
 import GroupsSection from "./GroupsSection";
 import SettingsSection from "./SettingsSection";
+import MissionRequiredGate from "../components/ui/MissionRequiredGate";
+import { matchGoalPath, matchSubjectPath, matchWorkspacePath } from "../store/navPaths";
 
 interface Props {
   onSignOut: () => Promise<void>;
@@ -26,13 +32,11 @@ export default function DashboardPage({ onSignOut }: Props) {
   const {
     navState,
     goBack,
-    toGoals,
-    toGoal,
-    toSubject,
     sidebarOpen,
     setSidebarOpen,
     syncFromPopState,
   } = useNavStore();
+  const [hydratingRoute, setHydratingRoute] = useState(false);
 
   // Sync from current URL on every mount (handles navigating back from home page)
   useEffect(() => {
@@ -46,7 +50,87 @@ export default function DashboardPage({ onSignOut }: Props) {
     return () => window.removeEventListener("popstate", onPop);
   }, [syncFromPopState]);
 
-  const wsSubject = navState.view === "workspace" ? navState.subject : undefined;
+  useEffect(() => {
+    const pathname = window.location.pathname;
+    const goalMatch = matchGoalPath(pathname);
+    const subjectMatch = matchSubjectPath(pathname);
+    const workspaceMatch = matchWorkspacePath(pathname);
+
+    const needsGoalHydration = navState.view === "goal" && !navState.goal && Boolean(goalMatch);
+    const needsSubjectHydration = navState.view === "subject" && (!navState.goal || !navState.subject) && Boolean(subjectMatch);
+    const needsWorkspaceHydration =
+      navState.view === "workspace" &&
+      (!navState.goal || !navState.subject || !navState.workspace) &&
+      Boolean(workspaceMatch);
+
+    if (!needsGoalHydration && !needsSubjectHydration && !needsWorkspaceHydration) return;
+
+    let cancelled = false;
+
+    const hydrateRoute = async () => {
+      setHydratingRoute(true);
+      try {
+        const [goals, subjects, workspaces] = await Promise.all([
+          getBigGoals(),
+          getSubjects(),
+          getWorkspaces(),
+        ]);
+        if (cancelled) return;
+
+        if (goalMatch) {
+          const goal = goals.find((item) => item.id === goalMatch.goalId);
+          syncFromPopState(goal ? { view: "goal", goal } : { view: "goals" });
+          return;
+        }
+
+        if (subjectMatch) {
+          const goal = goals.find((item) => item.id === subjectMatch.goalId);
+          const subject = subjects.find((item) => item.id === subjectMatch.subjectId);
+          if (!goal || !subject || !goal.subject_ids.includes(subject.id)) {
+            syncFromPopState(goal ? { view: "goal", goal } : { view: "goals" });
+            return;
+          }
+          syncFromPopState({ view: "subject", goal, subject });
+          return;
+        }
+
+        if (workspaceMatch) {
+          const goal = goals.find((item) => item.id === workspaceMatch.goalId);
+          const subject = subjects.find((item) => item.id === workspaceMatch.subjectId);
+          const workspace = workspaces.find((item) => item.id === workspaceMatch.workspaceId);
+          const tab = workspaceMatch.tab;
+
+          if (!goal || !subject || !workspace) {
+            syncFromPopState(goal ? { view: "goal", goal } : { view: "goals" });
+            return;
+          }
+
+          if (!goal.subject_ids.includes(subject.id) || workspace.subject_id !== subject.id) {
+            syncFromPopState({ view: "subject", goal, subject });
+            return;
+          }
+
+          syncFromPopState({ view: "workspace", goal, subject, workspace, tab });
+        }
+      } finally {
+        if (!cancelled) setHydratingRoute(false);
+      }
+    };
+
+    void hydrateRoute();
+    return () => {
+      cancelled = true;
+    };
+  }, [navState.goal, navState.subject, navState.view, navState.workspace, syncFromPopState]);
+
+  const workspaceSubject = navState.view === "workspace" ? navState.subject : undefined;
+  const loadingLabel = navState.view === "workspace"
+    ? "workspace"
+    : navState.view === "subject"
+      ? "subject"
+      : navState.view === "goal"
+        ? "mission"
+        : "section";
 
   return (
     <div className="min-h-screen bg-slate-950 flex">
@@ -62,7 +146,10 @@ export default function DashboardPage({ onSignOut }: Props) {
       )}
 
       {/* Main content */}
-      <main className="flex-1 min-h-screen ml-60 flex flex-col">
+      <main
+        className="ml-0 flex-1 min-h-screen flex-col md:ml-[var(--sb-w,56px)]"
+        style={{ transition: `margin-left 400ms cubic-bezier(0.25,1.1,0.4,1)` }}
+      >
         {/* Desktop header */}
         <TopBar onSignOut={onSignOut} />
 
@@ -80,74 +167,51 @@ export default function DashboardPage({ onSignOut }: Props) {
         </div>
 
         {/* Page content */}
-        <div className="flex-1 px-6 py-8 max-w-6xl w-full mx-auto">
+        <div className="flex-1 w-full">
           {navState.view === "overview" && <OverviewSection />}
 
-          {navState.view === "goals" && <GoalsPage />}
+          {navState.view !== "overview" && (
+            <div className="max-w-5xl mx-auto w-full px-8 py-8 pb-28">
+              {navState.view === "goals" && <GoalsPage />}
 
-          {navState.view === "goal" && navState.goal && (
-            <GoalDetailPage goal={navState.goal} />
-          )}
+              {navState.view === "goal" && navState.goal && (
+                <GoalDetailPage goal={navState.goal} />
+              )}
 
-          {navState.view === "subject" && navState.goal && navState.subject && (
-            <SubjectDetailPage goal={navState.goal} subject={navState.subject} />
-          )}
+              {navState.view === "subject" && navState.goal && navState.subject && (
+                <SubjectDetailPage goal={navState.goal} subject={navState.subject} />
+              )}
 
-          {navState.view === "workspace" && navState.workspace && (
-            <div className="space-y-6">
-              {/* Breadcrumb */}
-              {navState.goal && navState.subject && (
-                <div className="flex items-center gap-2 text-sm flex-wrap">
-                  <button
-                    onClick={toGoals}
-                    className="text-gray-500 hover:text-white transition-colors"
-                  >
-                    Missions
-                  </button>
-                  <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                  <button
-                    onClick={() => toGoal(navState.goal!)}
-                    className="text-gray-500 hover:text-white transition-colors truncate max-w-[100px]"
-                  >
-                    {navState.goal.title}
-                  </button>
-                  <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                  <button
-                    onClick={() => toSubject(navState.goal!, navState.subject!)}
-                    className="text-gray-500 hover:text-white transition-colors truncate max-w-[100px]"
-                  >
-                    {navState.subject.name}
-                  </button>
-                  <svg className="w-4 h-4 text-gray-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                  <span className="text-white font-medium">{navState.workspace.title}</span>
+              {navState.view === "workspace" && navState.workspace && (
+                <div className="space-y-6">
+                  <WorkspaceDetail
+                    workspace={navState.workspace}
+                    subject={workspaceSubject}
+                    onBack={goBack}
+                    onDeleted={goBack}
+                  />
                 </div>
               )}
-              <WorkspaceDetail
-                workspace={navState.workspace}
-                subject={wsSubject}
-                onBack={goBack}
-                onDeleted={goBack}
-              />
+
+              {hydratingRoute && (
+                <div className="text-sm text-gray-500">
+                  Loading {loadingLabel}...
+                </div>
+              )}
+
+              {navState.view === "subjects"   && <MissionRequiredGate feature="Subjects"><SubjectsSection /></MissionRequiredGate>}
+              {navState.view === "workspaces" && <MissionRequiredGate feature="Workspaces"><WorkspacesSection /></MissionRequiredGate>}
+              {navState.view === "documents"  && <MissionRequiredGate feature="Documents"><DocumentsSection /></MissionRequiredGate>}
+              {navState.view === "summary"    && <MissionRequiredGate feature="Summary"><SummarySection /></MissionRequiredGate>}
+              {navState.view === "roadmap"    && <MissionRequiredGate feature="Road Map"><RoadmapSection /></MissionRequiredGate>}
+              {navState.view === "sessions"   && <MissionRequiredGate feature="Sessions"><SessionsSection /></MissionRequiredGate>}
+              {navState.view === "flashcards" && <MissionRequiredGate feature="Flashcards"><FlashcardsSection /></MissionRequiredGate>}
+              {navState.view === "quizzes"    && <MissionRequiredGate feature="Quizzes"><QuizzesSection /></MissionRequiredGate>}
+              {navState.view === "notes"      && <MissionRequiredGate feature="Notes"><NotesSection /></MissionRequiredGate>}
+              {navState.view === "groups"     && <GroupsSection currentUserId="" />}
+              {navState.view === "settings"   && <SettingsSection />}
             </div>
           )}
-
-          {navState.view === "subjects"   && <SubjectsSection />}
-          {navState.view === "workspaces" && <WorkspacesSection />}
-          {navState.view === "documents"  && <DocumentsSection />}
-          {navState.view === "summary"    && <SummarySection />}
-          {navState.view === "roadmap"    && <RoadmapSection />}
-          {navState.view === "sessions"   && <SessionsSection subjects={[]} />}
-          {navState.view === "flashcards" && <FlashcardsSection />}
-          {navState.view === "quizzes"    && <QuizzesSection />}
-          {navState.view === "notes"      && <NotesSection />}
-          {navState.view === "groups"     && <GroupsSection currentUserId="" />}
-          {navState.view === "settings"   && <SettingsSection />}
         </div>
       </main>
     </div>

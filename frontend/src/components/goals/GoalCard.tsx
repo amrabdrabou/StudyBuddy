@@ -1,143 +1,195 @@
 import type { BigGoal, BigGoalStatus } from "../../api/big_goals";
 import type { Subject } from "../../api/subjects";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui/card";
+import { getMissionStatusTone, MISSION_STATUS_TOKENS } from "../ui/themeTokens";
+
+export const statusStyles = MISSION_STATUS_TOKENS;
 
 export function statusColor(status: BigGoalStatus) {
-  switch (status) {
-    case "active":             return "text-emerald-400 bg-emerald-400/10";
-    case "paused":             return "text-amber-400 bg-amber-400/10";
-    case "completed":          return "text-blue-400 bg-blue-400/10";
-    case "canceled":           return "text-red-400 bg-red-400/10";
-    case "overdue":            return "text-red-400 bg-red-400/10";
-    case "ready_to_complete":  return "text-cyan-400 bg-cyan-400/10";
-    default:                   return "text-gray-400 bg-gray-400/10";
-  }
+  const tone = getMissionStatusTone(status);
+  return `${tone.text} ${tone.bg}`;
 }
 
-export default function GoalCard({ goal, subjects, onEdit, onDelete, onSetupWorkspace, onSelect }: {
+export function SubjectProgressCircle({ progress, color }: { progress: number; color: string }) {
+  const pct = Math.max(0, Math.min(100, Math.round(progress)));
+  const radius = 12;
+  const circumference = 2 * Math.PI * radius;
+  const dashOffset = circumference * (1 - pct / 100);
+
+  return (
+    <span className="relative inline-flex h-8 w-8 flex-shrink-0 items-center justify-center">
+      <svg className="h-8 w-8 -rotate-90" viewBox="0 0 32 32" aria-hidden="true">
+        <circle cx="16" cy="16" r={radius} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="3" />
+        <circle
+          cx="16"
+          cy="16"
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={dashOffset}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold text-white">
+        {pct}
+      </span>
+    </span>
+  );
+}
+
+export default function GoalCard({ goal, subjects, onEdit, onDelete, onSetupWorkspace, onSelect, onRename, onSubjectSelect }: {
   goal: BigGoal;
   subjects: Subject[];
   onEdit: (g: BigGoal) => void;
   onDelete: (g: BigGoal) => void;
   onSetupWorkspace: (g: BigGoal) => void;
   onSelect: (g: BigGoal) => void;
+  onRename?: (g: BigGoal) => void;
+  onSubjectSelect?: (goal: BigGoal, subject: Subject) => void;
 }) {
-  const subjectMap = Object.fromEntries(subjects.map(s => [s.id, s]));
+  const subjectMap = Object.fromEntries(subjects.map((s) => [s.id, s]));
   const stop = (e: React.MouseEvent) => e.stopPropagation();
   const color = goal.cover_color ?? "#6366f1";
+  const linkedSubjects = goal.subject_ids
+    .map((sid) => subjectMap[sid])
+    .filter((subject): subject is Subject => Boolean(subject));
+  const statusLabel = goal.status.replace("_", " ");
+  const progressPct = Math.max(0, Math.min(100, Math.round(goal.progress_pct ?? 0)));
+  const deadlineLabel = goal.deadline
+    ? new Date(goal.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+    : "No deadline";
+  const progressTag =
+    progressPct >= 100 ? "Complete" :
+    progressPct >= 60 ? "On track" :
+    progressPct > 0 ? "In motion" : "Not started";
 
   return (
-    <div
+    <Card
       role="button"
       tabIndex={0}
       onClick={() => onSelect(goal)}
-      onKeyDown={e => e.key === "Enter" && onSelect(goal)}
-      className="relative overflow-hidden rounded-2xl border cursor-pointer transition-all hover:scale-[1.01]"
+      onKeyDown={(e) => e.key === "Enter" && onSelect(goal)}
+      className="group relative flex h-full flex-col overflow-hidden cursor-pointer text-left transition-all duration-200 hover:-translate-y-1 hover:shadow-xl"
       style={{
-        background: `${color}0d`,
-        borderColor: `${color}30`,
+        background: `linear-gradient(168deg, ${color}14 0%, transparent 40%)`,
+        borderColor: `${color}25`,
       }}
     >
-      {/* Top accent bar */}
-      <div className="h-1" style={{ background: color }} />
+      {/* Top accent stripe */}
+      <div
+        className="absolute inset-x-0 top-0 h-[3px]"
+        style={{ background: `linear-gradient(90deg, ${color}, ${color}55)` }}
+      />
 
-      <div className="p-5 space-y-4">
-        {/* Header row */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            {goal.icon && (
-              <span className="text-xl flex-shrink-0">{goal.icon}</span>
-            )}
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white leading-tight truncate">{goal.title}</p>
-              {goal.description && (
-                <p className="text-xs text-gray-500 mt-0.5 truncate">{goal.description}</p>
-              )}
-            </div>
+      {/* Hover actions */}
+      <div className="absolute top-5 right-4 z-10 flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        {onRename && (
+          <button
+            onClick={(e) => { stop(e); onRename(goal); }}
+            className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-white/10 hover:text-white"
+            title="Rename"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+            </svg>
+          </button>
+        )}
+        <button
+          onClick={(e) => { stop(e); onDelete(goal); }}
+          className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
+          title="Delete"
+        >
+          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Header: icon + status */}
+      <CardHeader className="gap-4 p-5 pb-3 pt-5">
+        <div className="flex items-start justify-between gap-3">
+          <div
+            className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-xl border"
+            style={{ background: `${color}20`, borderColor: `${color}38` }}
+          >
+            <span className="text-xl leading-none">{goal.icon ?? "🎯"}</span>
           </div>
-          <div className="flex items-center gap-1.5 flex-shrink-0">
-            {goal.pinned && (
-              <span title="Pinned" className="text-amber-400">
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M16 12V4h1V2H7v2h1v8l-2 2v2h5.2v6h1.6v-6H18v-2l-2-2z"/>
-                </svg>
-              </span>
-            )}
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${statusColor(goal.status)}`}>
-              {goal.status.replace("_", " ")}
-            </span>
-          </div>
+          <span className={`text-[11px] px-2.5 py-1 rounded-full font-semibold capitalize ${statusColor(goal.status)}`}>
+            {statusLabel}
+          </span>
         </div>
 
-        {/* Progress bar */}
-        <div className="space-y-1">
-          <div className="flex justify-between text-xs text-gray-500">
-            <span>Progress</span>
-            <span className="font-semibold" style={{ color }}>{goal.progress_pct}%</span>
+        <div className="space-y-0.5">
+          <CardTitle className="line-clamp-2 text-[15px] leading-snug text-white transition-colors group-hover:text-indigo-200">
+            {goal.title}
+          </CardTitle>
+          <CardDescription className="line-clamp-2 text-[12px] text-gray-400">
+            {goal.description || linkedSubjects[0]?.name || "Mission"}
+          </CardDescription>
+        </div>
+      </CardHeader>
+
+      <CardContent className="flex flex-1 flex-col gap-3.5 p-5 pt-1">
+        {/* Progress section */}
+        <div className="space-y-2">
+          <div className="flex items-baseline justify-between">
+            <span className="text-[22px] font-black leading-none" style={{ color }}>{progressPct}%</span>
+            <span
+              className="text-[10px] font-semibold rounded-md px-2 py-0.5"
+              style={{ background: `${color}15`, color }}
+            >
+              {progressTag}
+            </span>
           </div>
-          <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/[0.07]">
             <div
-              className="h-full rounded-full transition-all"
-              style={{ width: `${goal.progress_pct}%`, background: color }}
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${progressPct}%`, background: `linear-gradient(90deg, ${color}, ${color}bb)` }}
             />
           </div>
         </div>
 
-        {/* Subjects */}
-        {goal.subject_ids.length > 0 && (
-          <div className="flex flex-wrap gap-1.5">
-            {goal.subject_ids.map(sid => (
-              <span key={sid}
-                className="text-xs px-2 py-0.5 rounded-full font-medium"
-                style={{ background: `${color}15`, color: color }}>
-                {subjectMap[sid]?.name ?? sid.slice(0, 8)}
-              </span>
-            ))}
+        {/* Meta row */}
+        <div className="flex items-center justify-between text-[11px]">
+          <span className="text-gray-400">
+            {goal.subject_ids.length} subject{goal.subject_ids.length !== 1 ? "s" : ""}
+          </span>
+          <span className="text-gray-500">{deadlineLabel}</span>
+        </div>
+
+        {/* Linked subjects */}
+        {linkedSubjects.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pt-0.5">
+            {linkedSubjects.map((subject) => {
+              const sc = subject.color_hex ?? color;
+              return (
+                <button
+                  key={subject.id}
+                  type="button"
+                  onClick={(e) => {
+                    stop(e);
+                    onSubjectSelect?.(goal, subject);
+                  }}
+                  className="inline-flex max-w-full items-center gap-1.5 rounded-xl border px-2 py-1.5 text-left transition-all hover:-translate-y-0.5 hover:bg-white/[0.08]"
+                  style={{ background: `${sc}0c`, borderColor: `${sc}28` }}
+                >
+                  <SubjectProgressCircle progress={subject.progress_pct ?? 0} color={sc} />
+                  <span className="min-w-0">
+                    <span className="block max-w-[7rem] truncate text-[12px] font-semibold text-white leading-tight">
+                      {subject.name}
+                    </span>
+                    <span className="block text-[10px] font-semibold leading-tight" style={{ color: `${sc}cc` }}>
+                      {Math.round(subject.progress_pct ?? 0)}%
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
           </div>
         )}
-
-        {goal.deadline && (
-          <p className="text-xs text-gray-500">
-            Due {new Date(goal.deadline).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" })}
-          </p>
-        )}
-
-        {/* Actions */}
-        <div className="flex gap-2 flex-wrap" onClick={stop}>
-          {goal.status === "active" && (
-            <>
-              <button onClick={() => onEdit({ ...goal, status: "completed" as BigGoalStatus })}
-                className="text-xs px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 transition-colors">
-                Complete
-              </button>
-              <button onClick={() => onEdit({ ...goal, status: "paused" as BigGoalStatus })}
-                className="text-xs px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-colors">
-                Pause
-              </button>
-            </>
-          )}
-          {goal.status === "paused" && (
-            <button onClick={() => onEdit({ ...goal, status: "active" as BigGoalStatus })}
-              className="text-xs px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20 transition-colors">
-              Resume
-            </button>
-          )}
-          <button
-            onClick={() => onSetupWorkspace(goal)}
-            className="text-xs px-3 py-1.5 rounded-lg bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500/20 transition-colors flex items-center gap-1.5"
-          >
-            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
-                d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-            Setup Workspace
-          </button>
-
-          <button onClick={() => onDelete(goal)}
-            className="text-xs px-3 py-1.5 rounded-lg bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors ml-auto">
-            Delete
-          </button>
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   );
 }

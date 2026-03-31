@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import random
 import uuid
 from typing import Any
 
@@ -22,6 +23,7 @@ from app.services.llm_client import chat as _llm_chat
 from app.services.prompt_service import PromptService
 
 logger = logging.getLogger(__name__)
+_QUIZ_OPTION_RANDOM = random.SystemRandom()
 
 _DIFFICULTY_CTX: dict[str, str] = {
     "easy":   "Use plain language, cover only the most fundamental concepts, avoid jargon.",
@@ -34,6 +36,16 @@ _DIFFICULTY_DB_MAP: dict[str, str] = {
     "normal": "medium",
     "hard":   "hard",
 }
+
+
+def _coerce_bool(value: Any) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"true", "1", "yes", "y"}
+    return False
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
@@ -49,6 +61,44 @@ def _strip_code_fence(raw: str) -> str:
                 inner = inner[4:]
             text = inner.rsplit("```", 1)[0].strip()
     return text
+
+
+async def _parse_json(raw: str, max_tokens: int) -> Any:
+    """Parse JSON from model output, with one repair attempt on failure.
+
+    1. Strips code fences and tries json.loads.
+    2. On JSONDecodeError, sends a repair prompt to the model asking it to
+       return only valid JSON, then tries once more.
+    3. Raises ValueError if the repair attempt also fails.
+    """
+    cleaned = _strip_code_fence(raw)
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    logger.warning("JSON parse failed — attempting LLM repair (output: %.120s…)", raw)
+    repair_messages = [
+        {
+            "role": "system",
+            "content": "You are a JSON repair assistant. Output ONLY valid JSON — no markdown, no commentary.",
+        },
+        {
+            "role": "user",
+            "content": (
+                "The following text should be valid JSON but is malformed. "
+                "Fix it and return only the corrected JSON:\n\n" + raw
+            ),
+        },
+    ]
+    repaired_raw, _, _ = await _llm_chat(repair_messages, max_tokens)
+    repaired = _strip_code_fence(repaired_raw)
+    try:
+        return json.loads(repaired)
+    except json.JSONDecodeError as exc:
+        raise ValueError(
+            f"LLM returned invalid JSON and repair attempt failed: {exc}"
+        ) from exc
 
 
 async def _call(
@@ -119,7 +169,7 @@ async def generate_flashcards(
         {"role": "user",   "content": user_msg},
     ]
     raw = await _call("flashcards", variables, fallback, 2500, db, user_id)
-    data: list[dict[str, Any]] = json.loads(_strip_code_fence(raw))
+    data: list[dict[str, Any]] = await _parse_json(raw, 2500)
     return [
         {
             "front": str(c["front"]),
@@ -153,7 +203,7 @@ async def generate_quiz(
         {"role": "user",   "content": user_msg},
     ]
     raw = await _call("quiz", variables, fallback, 3000, db, user_id)
-    data: list[dict[str, Any]] = json.loads(_strip_code_fence(raw))
+    data: list[dict[str, Any]] = await _parse_json(raw, 3000)
 
     result = []
     for i, q in enumerate(data):
@@ -162,12 +212,15 @@ async def generate_quiz(
         options = [
             {
                 "text":        str(o.get("text", "")),
-                "is_correct":  bool(o.get("is_correct", False)),
+                "is_correct":  _coerce_bool(o.get("is_correct", False)),
                 "order_index": j,
             }
             for j, o in enumerate(q["options"])
             if o.get("text")
         ]
+        _QUIZ_OPTION_RANDOM.shuffle(options)
+        for j, option in enumerate(options):
+            option["order_index"] = j
         result.append({
             "question_text":  str(q["question_text"]),
             "question_type":  "multiple_choice",
@@ -199,7 +252,7 @@ async def generate_study_session_plan(
         {"role": "user",   "content": user_msg},
     ]
     raw = await _call("study_session_plan", variables, fallback, 600, db, user_id)
-    data: dict[str, Any] = json.loads(_strip_code_fence(raw))
+    data: dict[str, Any] = await _parse_json(raw, 600)
     # Clamp and validate returned values
     fc = max(5, min(20, int(data.get("flashcard_count", 10))))
     qc = max(3, min(15, int(data.get("quiz_count", 5))))
@@ -226,6 +279,7 @@ async def generate_roadmap(
     summary: str,
     workspace_title: str,
     count: int = 8,
+    difficulty: str = "normal",
     db: AsyncSession | None = None,
     user_id: uuid.UUID | None = None,
 ) -> list[dict[str, Any]]:
@@ -234,14 +288,15 @@ async def generate_roadmap(
         "count": count,
         "workspace_title": workspace_title,
         "summary": summary[:10000],
+        "difficulty": difficulty,
     }
-    sys_msg, user_msg = _legacy_prompts.roadmap_prompts(summary, workspace_title, count)
+    sys_msg, user_msg = _legacy_prompts.roadmap_prompts(summary, workspace_title, count, difficulty)
     fallback = [
         {"role": "system", "content": sys_msg},
         {"role": "user",   "content": user_msg},
     ]
     raw = await _call("roadmap", variables, fallback, 2000, db, user_id)
-    data: list[dict[str, Any]] = json.loads(_strip_code_fence(raw))
+    data: list[dict[str, Any]] = await _parse_json(raw, 2000)
     return [
         {
             "title":       str(g["title"])[:300],
@@ -302,7 +357,7 @@ async def suggest_session(
         {"role": "user",   "content": user_msg},
     ]
     raw = await _call("session_suggest", variables, fallback, 800, db, user_id)
-    data: dict[str, Any] = json.loads(_strip_code_fence(raw))
+    data: dict[str, Any] = await _parse_json(raw, 800)
     return {
         "title":              str(data.get("title", "Study Session")),
         "focus_summary":      str(data.get("focus_summary", "")),

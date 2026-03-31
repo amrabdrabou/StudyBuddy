@@ -1,13 +1,8 @@
 import type { Subject } from "../../api/subjects";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "../ui/card";
+import { SUBJECT_ACCENT_TOKENS } from "../ui/themeTokens";
 
-export const SUBJECT_ACCENT_COLORS = [
-  { icon: "text-violet-400", iconBg: "bg-violet-500/15 border-violet-500/20", iconBgHover: "group-hover:border-violet-500/50", border: "hover:border-violet-500/60" },
-  { icon: "text-indigo-400",  iconBg: "bg-indigo-500/15 border-indigo-500/20",  iconBgHover: "group-hover:border-indigo-500/50",  border: "hover:border-indigo-500/60"  },
-  { icon: "text-cyan-400",    iconBg: "bg-cyan-500/15 border-cyan-500/20",      iconBgHover: "group-hover:border-cyan-500/50",    border: "hover:border-cyan-500/60"    },
-  { icon: "text-emerald-400", iconBg: "bg-emerald-500/15 border-emerald-500/20",iconBgHover: "group-hover:border-emerald-500/50", border: "hover:border-emerald-500/60" },
-  { icon: "text-amber-400",   iconBg: "bg-amber-500/15 border-amber-500/20",    iconBgHover: "group-hover:border-amber-500/50",   border: "hover:border-amber-500/60"   },
-  { icon: "text-rose-400",    iconBg: "bg-rose-500/15 border-rose-500/20",      iconBgHover: "group-hover:border-rose-500/50",    border: "hover:border-rose-500/60"    },
-];
+export const SUBJECT_ACCENT_COLORS = SUBJECT_ACCENT_TOKENS;
 
 export const SUBJECT_ICONS = [
   // book
@@ -24,24 +19,42 @@ export const SUBJECT_ICONS = [
   <svg key="scroll" className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.8" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>,
 ];
 
-export default function SubjectCard({ subject, onRename, onDelete, onClick, index = 0 }: {
+export default function SubjectCard({
+  subject,
+  onRename,
+  onDelete,
+  onClick,
+  index = 0,
+  missionTitle,
+  workspaceCount = 0,
+  needsMission = false,
+}: {
   subject: Subject;
   index?: number;
   onClick?: (s: Subject) => void;
   onRename: (s: Subject) => void;
   onDelete: (s: Subject) => void;
+  missionTitle?: string;
+  workspaceCount?: number;
+  needsMission?: boolean;
 }) {
   const accent = SUBJECT_ACCENT_COLORS[index % SUBJECT_ACCENT_COLORS.length];
-  const icon = SUBJECT_ICONS[index % SUBJECT_ICONS.length];
+  const icon = subject.icon
+    ? <span className="text-2xl leading-none">{subject.icon}</span>
+    : SUBJECT_ICONS[index % SUBJECT_ICONS.length];
+  const sequenceHint = needsMission
+    ? "Attach this subject to a mission to continue the study flow."
+    : workspaceCount > 0
+      ? "Open the subject and continue into its workspaces."
+      : "Open the subject and create the first workspace.";
 
   return (
-    <div
+    <Card
       onClick={() => onClick?.(subject)}
-      className={`group relative bg-slate-900/80 border border-white/[0.08] rounded-2xl p-6 flex flex-col
-                   transition-all duration-200 ${accent.border}
-                   ${onClick ? "cursor-pointer" : ""}`}
+      className={`group relative text-left hover:bg-white/8 transition-all duration-200
+                   ${accent.border} ${onClick ? "cursor-pointer" : ""}`}
+      style={subject.color_hex ? { background: `${subject.color_hex}0a`, borderColor: `${subject.color_hex}25` } : undefined}
     >
-      {/* Action buttons */}
       <div className="absolute top-4 right-4 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
         <button onClick={(e) => { e.stopPropagation(); onRename(subject); }} title="Rename"
           className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/10 transition-colors">
@@ -57,35 +70,46 @@ export default function SubjectCard({ subject, onRename, onDelete, onClick, inde
         </button>
       </div>
 
-      {/* Icon + Name */}
-      <div className="flex items-center gap-4 mb-6">
-        <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 border ${accent.iconBg} ${accent.iconBgHover} transition-colors`}>
+      <CardHeader className="items-start justify-between gap-2 p-5 pb-3">
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 border ${accent.iconBg} ${accent.iconBgHover} transition-colors`}>
           <div className={accent.icon}>{icon}</div>
         </div>
-        <h3 className="text-lg font-bold text-white leading-snug">{subject.name}</h3>
-      </div>
+        <span
+          className="text-xs px-2 py-0.5 rounded-full font-medium"
+          style={needsMission
+            ? { background: "rgba(248,113,113,0.12)", color: "#fca5a5" }
+            : { background: "rgba(129,140,248,0.12)", color: "#a5b4fc" }}
+        >
+          {needsMission ? "needs mission" : workspaceCount > 0 ? "ready" : "needs workspace"}
+        </span>
+      </CardHeader>
 
-      {/* Stats badges */}
-      <div className="flex gap-3 mt-auto">
-        <div className="flex-1 py-2.5 px-2 rounded-xl bg-white/[0.04] border border-white/[0.07] flex flex-col items-center gap-1">
-          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="text-[11px] text-gray-500 leading-none">Sessions</span>
+      <CardContent className="space-y-3 p-5 pt-0">
+        <div>
+        <CardTitle className="group-hover:text-indigo-300 transition-colors">{subject.name}</CardTitle>
+        <CardDescription className="mt-0.5">
+          {needsMission ? "Not linked to a mission yet" : missionTitle ?? "Mission"}
+        </CardDescription>
         </div>
-        <div className="flex-1 py-2.5 px-2 rounded-xl bg-white/[0.04] border border-white/[0.07] flex flex-col items-center gap-1">
-          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-          <span className="text-[11px] text-gray-500 leading-none">Docs</span>
-        </div>
-        <div className="flex-1 py-2.5 px-2 rounded-xl bg-white/[0.04] border border-white/[0.07] flex flex-col items-center gap-1">
-          <svg className="w-3.5 h-3.5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-          </svg>
-          <span className="text-[11px] text-gray-500 leading-none">Notes</span>
-        </div>
+
+      <div className="flex items-center justify-between text-xs">
+        <span className="text-gray-300">
+          {workspaceCount} workspace{workspaceCount !== 1 ? "s" : ""}
+        </span>
+        <span className="text-gray-600">
+          {new Date(subject.updated_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        </span>
       </div>
-    </div>
+      </CardContent>
+
+      <CardFooter className="pt-3 border-t border-white/5">
+        <p className="text-xs font-semibold text-white">
+          {needsMission ? "Choose a mission first" : workspaceCount > 0 ? "Open subject" : "Create first workspace"}
+        </p>
+        <p className="text-[11px] text-gray-500 mt-1 leading-relaxed">
+          {sequenceHint}
+        </p>
+      </CardFooter>
+    </Card>
   );
 }

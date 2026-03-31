@@ -1,0 +1,30 @@
+FROM python:3.13-slim AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY backend/requirments.txt ./
+RUN pip install -r requirments.txt
+
+COPY backend/ .
+
+# ── Dev ───────────────────────────────────────────────────────────────────────
+FROM base AS dev
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+
+# ── Production ────────────────────────────────────────────────────────────────
+FROM base AS prod
+
+RUN addgroup --system app && adduser --system --ingroup app app
+RUN mkdir -p /var/app/uploads && chown app:app /var/app/uploads
+USER app
+
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "2"]

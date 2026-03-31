@@ -24,7 +24,11 @@ class SummarizeResponse(BaseModel):
 # ── Flashcards ────────────────────────────────────────────────────────────────
 
 class GenerateFlashcardsRequest(BaseModel):
-    summary: str = Field(min_length=50, description="Summary text to generate cards from")
+    summary: str = Field(default="", description="Summary text to generate cards from. When empty, document_ids are used.")
+    document_ids: List[uuid.UUID] = Field(
+        default_factory=list,
+        description="Document IDs to load summaries from. Ignored when summary is provided.",
+    )
     difficulty: Difficulty = "normal"
     deck_title: str = Field(default="AI Flashcards", max_length=200)
     count: int = Field(default=15, ge=5, le=30, description="Number of cards to generate (5–30)")
@@ -40,7 +44,11 @@ class GenerateFlashcardsResponse(BaseModel):
 # ── Quiz ──────────────────────────────────────────────────────────────────────
 
 class GenerateQuizRequest(BaseModel):
-    summary: str = Field(min_length=50, description="Summary text to generate questions from")
+    summary: str = Field(default="", description="Summary text to generate questions from. When empty, document_ids are used.")
+    document_ids: List[uuid.UUID] = Field(
+        default_factory=list,
+        description="Document IDs to load summaries from. Ignored when summary is provided.",
+    )
     difficulty: Difficulty = "normal"
     quiz_title: str = Field(default="AI Quiz", max_length=200)
     count: int = Field(default=10, ge=3, le=20, description="Number of questions to generate (3–20)")
@@ -58,9 +66,17 @@ class GenerateQuizResponse(BaseModel):
 class GenerateRoadmapRequest(BaseModel):
     document_ids: List[uuid.UUID] = Field(
         default_factory=list,
-        description="Document IDs to include. Empty list = use all ready documents.",
+        description="Document IDs to include. Empty list = use all ready documents. Ignored when summary_text is set.",
     )
-    count: int = Field(default=8, ge=3, le=15, description="Number of micro-goals to generate (3–15)")
+    summary_text: str | None = Field(
+        default=None,
+        description="Raw summary text to generate from. When set, document_ids is ignored.",
+    )
+    count: int = Field(default=8, ge=3, le=20, description="Number of micro-goals to generate (3–20)")
+    difficulty: Difficulty = Field(
+        default="normal",
+        description="Goal granularity: easy = high-level, normal = balanced, hard = deep/detailed.",
+    )
 
 
 class GenerateRoadmapResponse(BaseModel):
@@ -91,6 +107,14 @@ class GenerateStudySessionRequest(BaseModel):
         default="",
         max_length=600,
         description="Micro-goal title + description to focus the session. Used when no summary is provided.",
+    )
+    goal_id: uuid.UUID | None = Field(
+        default=None,
+        description="Deprecated — use goal_ids. Single micro-goal ID kept for backward compatibility.",
+    )
+    goal_ids: List[uuid.UUID] = Field(
+        default_factory=list,
+        description="One or more micro-goal IDs to link to this session. When non-empty, session is linked to all provided goals instead of creating new system micro-goals.",
     )
     mode: Literal["auto", "manual"] = Field(default="auto", description="auto = AI decides all params; manual = use provided params")
     # Used only when mode="manual"

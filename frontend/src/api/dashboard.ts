@@ -8,6 +8,13 @@ export interface RecentSession {
   started_at: string;
 }
 
+export interface MissionProgress {
+  id: string;
+  title: string;
+  cover_color: string;
+  progress_pct: number;
+}
+
 export interface DashboardStats {
   subjects_count: number;
   active_workspaces_count: number;
@@ -18,6 +25,7 @@ export interface DashboardStats {
   quiz_sets_count: number;
   notes_count: number;
   recent_sessions: RecentSession[];
+  mission_progress: MissionProgress[];
 }
 
 export async function getDashboard(): Promise<DashboardStats> {

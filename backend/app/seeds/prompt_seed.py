@@ -4,17 +4,18 @@ Run at every startup. Only inserts rows that don't already exist.
 Never overwrites existing active prompts — admins can update via API.
 
 Prompt naming convention:
-  name          — feature slug (summarize | flashcards | quiz | roadmap | chat | session_suggest)
+  name          — feature slug (summarize | flashcards | quiz | roadmap | chat | session_suggest | study_session_plan)
   role          — "system" or "user"
   version       — starts at 1, increment when the template changes
 
 Jinja2 variables used per prompt:
-  summarize       → {{ filename }}, {{ document_text }}
-  flashcards      → {{ count }}, {{ difficulty }}, {{ difficulty_ctx }}, {{ summary }}
-  quiz            → {{ count }}, {{ difficulty }}, {{ difficulty_ctx }}, {{ summary }}
-  roadmap         → {{ count }}, {{ workspace_title }}, {{ summary }}
-  chat (system)   → {{ workspace_title }}, {{ context }}
-  session_suggest → {{ workspace_title }}, {{ available_minutes }}, {{ goals_text }}
+  summarize          → {{ filename }}, {{ document_text }}
+  flashcards         → {{ count }}, {{ difficulty }}, {{ difficulty_ctx }}, {{ summary }}
+  quiz               → {{ count }}, {{ difficulty }}, {{ difficulty_ctx }}, {{ summary }}
+  roadmap            → {{ count }}, {{ workspace_title }}, {{ summary }}
+  chat (system)      → {{ workspace_title }}, {{ context }}
+  session_suggest    → {{ workspace_title }}, {{ available_minutes }}, {{ goals_text }}
+  study_session_plan → {{ workspace_title }}, {{ summary }}
 """
 from __future__ import annotations
 
@@ -190,6 +191,38 @@ Guidelines:
 - If a concept is not in the context, say so and offer general guidance.
 - Use examples and analogies to clarify complex ideas.
 - Format numbered lists for practice questions.""",
+    ),
+
+    # ── study_session_plan ────────────────────────────────────────────────────
+    (
+        "study_session_plan", 1, "system",
+        "Expert study coach. Outputs JSON optimal study parameters from material.",
+        (
+            "You are an expert study coach and learning designer. "
+            "Analyze the provided material and design optimal study parameters. "
+            "Output ONLY valid JSON — no markdown fences, no commentary, no extra text."
+        ),
+    ),
+    (
+        "study_session_plan", 1, "user",
+        "User prompt: requests a JSON study session plan from workspace material.",
+        """\
+Analyze this study material for workspace "{{ workspace_title }}" and recommend optimal study parameters.
+
+Return a JSON object with exactly these fields:
+  "session_title":        descriptive title for this study session (string)
+  "duration_minutes":     recommended session duration in minutes, integer between 20 and 120
+  "flashcard_count":      optimal number of flashcards to create, integer between 5 and 20
+  "flashcard_difficulty": one of "easy", "normal", "hard" based on material complexity
+  "quiz_count":           optimal number of quiz questions, integer between 3 and 15
+  "quiz_difficulty":      one of "easy", "normal", "hard" based on material complexity
+  "focus_summary":        2–3 sentences on what to focus on in this session (string)
+  "tips":                 array of 2–3 specific study tips for this material (array of strings)
+
+Difficulty guide: easy = introductory/factual, normal = conceptual/applied, hard = advanced/analytical.
+
+Study material:
+{{ summary }}""",
     ),
 
     # ── session_suggest ────────────────────────────────────────────────────────

@@ -28,6 +28,7 @@ class SubjectResponse(BaseModel):
     color_hex: Optional[str]
     icon: Optional[str]
     is_archived: bool
+    progress_pct: int = 0
     created_at: datetime
     updated_at: datetime
 

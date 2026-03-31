@@ -1,4 +1,5 @@
 import { Suspense, lazy } from "react";
+import type { Application } from "@splinetool/runtime";
 import { cn } from "@/lib/utils";
 
 const Spline = lazy(() => import("@splinetool/react-spline"));
@@ -6,9 +7,10 @@ const Spline = lazy(() => import("@splinetool/react-spline"));
 interface SplineSceneProps {
   scene: string;
   className?: string;
+  onLoad?: (app: Application) => void;
 }
 
-export function SplineScene({ scene, className }: SplineSceneProps) {
+export function SplineScene({ scene, className, onLoad }: SplineSceneProps) {
   return (
     <Suspense
       fallback={
@@ -17,7 +19,7 @@ export function SplineScene({ scene, className }: SplineSceneProps) {
         </div>
       }
     >
-      <Spline scene={scene} className={cn("w-full h-full", className)} />
+      <Spline scene={scene} className={cn("w-full h-full", className)} onLoad={onLoad} />
     </Suspense>
   );
 }

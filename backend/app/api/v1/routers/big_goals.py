@@ -4,7 +4,7 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func as sa_func, select
+from sqlalchemy import delete as sa_delete, func as sa_func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.dependencies import get_current_active_user
@@ -18,6 +18,7 @@ from app.models.subject import Subject
 from app.models.user import User
 from app.models.workspace import Workspace
 from app.schemas.big_goal import BigGoalCreate, BigGoalDetailResponse, BigGoalResponse, BigGoalUpdate, SubjectSummary
+from app.services.progress_service import get_progress_snapshot_map
 
 router = APIRouter(prefix="/big-goals", tags=["big-goals"])
 
@@ -44,11 +45,7 @@ async def _sync_subjects(
     goal: BigGoal, subject_ids: list[uuid.UUID], db: AsyncSession
 ) -> None:
     """Replace the goal's subject links with the given list."""
-    existing = await db.execute(
-        select(BigGoalSubject).where(BigGoalSubject.big_goal_id == goal.id)
-    )
-    for link in existing.scalars().all():
-        await db.delete(link)
+    await db.execute(sa_delete(BigGoalSubject).where(BigGoalSubject.big_goal_id == goal.id))
     for sid in subject_ids:
         db.add(BigGoalSubject(big_goal_id=goal.id, subject_id=sid))
 
@@ -65,7 +62,8 @@ async def list_big_goals(
         .order_by(BigGoal.pinned.desc(), BigGoal.display_order, BigGoal.created_at.desc())
     )
     goals = result.scalars().all()
-    return [BigGoalResponse.from_orm_with_subjects(g) for g in goals]
+    snap_map = await get_progress_snapshot_map(db, current_user.id, "mission", [g.id for g in goals])
+    return [BigGoalResponse.from_orm_with_subjects(g, snap_map.get(g.id)) for g in goals]
 
 
 @router.post("/", response_model=BigGoalResponse, status_code=status.HTTP_201_CREATED)
@@ -104,7 +102,8 @@ async def get_big_goal(
 ):
     goal = await get_or_404(db, BigGoal, "BigGoal not found",
         BigGoal.id == goal_id, BigGoal.user_id == current_user.id)
-    return BigGoalResponse.from_orm_with_subjects(goal)
+    snap_map = await get_progress_snapshot_map(db, current_user.id, "mission", [goal_id])
+    return BigGoalResponse.from_orm_with_subjects(goal, snap_map.get(goal_id))
 
 
 @router.get("/{goal_id}/detail", response_model=BigGoalDetailResponse)
@@ -117,7 +116,8 @@ async def get_big_goal_detail(
         BigGoal.id == goal_id, BigGoal.user_id == current_user.id)
 
     subject_ids = [bgs.subject_id for bgs in (goal.big_goal_subjects or [])]
-    base = BigGoalResponse.from_orm_with_subjects(goal)
+    snap_map = await get_progress_snapshot_map(db, current_user.id, "mission", [goal_id])
+    base = BigGoalResponse.from_orm_with_subjects(goal, snap_map.get(goal_id))
 
     if not subject_ids:
         return BigGoalDetailResponse(**base.model_dump())
@@ -207,5 +207,13 @@ async def delete_big_goal(
 ):
     goal = await get_or_404(db, BigGoal, "BigGoal not found",
         BigGoal.id == goal_id, BigGoal.user_id == current_user.id)
+
+    # Delete all subjects linked to this goal — the DB CASCADE takes care of
+    # Workspaces, Documents, DocumentContent, DocumentChunks, MicroGoals,
+    # Sessions, FlashcardDecks, QuizSets, Notes, AIJobs, AIChatMessages, etc.
+    subject_ids = [bgs.subject_id for bgs in goal.big_goal_subjects]
+    if subject_ids:
+        await db.execute(sa_delete(Subject).where(Subject.id.in_(subject_ids)))
+
     await db.delete(goal)
     await db.commit()

@@ -71,7 +71,12 @@ def quiz_prompts(summary: str, difficulty: str, count: int, difficulty_ctx: str)
     return system, user
 
 
-def roadmap_prompts(summary: str, workspace_title: str, count: int) -> tuple[str, str]:
+def roadmap_prompts(summary: str, workspace_title: str, count: int, difficulty: str = "normal") -> tuple[str, str]:
+    difficulty_hint = {
+        "easy":   "Keep goals high-level and conceptual — suitable for a beginner. Avoid deep jargon. Each goal should be broad and encouraging.",
+        "normal": "Balance conceptual understanding with practical application. Mix foundational and applied goals.",
+        "hard":   "Make goals detailed and granular, targeting deep mastery. Include edge cases, advanced techniques, and synthesis tasks.",
+    }.get(difficulty, "")
     system = (
         "You are an expert learning designer who creates structured study roadmaps. "
         "You break complex subjects into clear, sequential, achievable objectives. "
@@ -79,6 +84,7 @@ def roadmap_prompts(summary: str, workspace_title: str, count: int) -> tuple[str
     )
     user = (
         f"Create a study roadmap with exactly {count} micro-goals for the workspace: \"{workspace_title}\".\n\n"
+        f"Difficulty level: {difficulty}. {difficulty_hint}\n\n"
         f"Return a JSON array ordered from foundational to advanced. Each element must have:\n"
         f'  "title": short actionable goal starting with a verb (e.g. "Understand X", "Apply Y") (string, max 200 chars)\n'
         f'  "description": 1–2 sentences on what to study and why (string or null)\n'

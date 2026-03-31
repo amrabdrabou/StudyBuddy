@@ -17,7 +17,6 @@ from app.core.config import get_settings
 logger = logging.getLogger(__name__)
 
 _OPENAI_URL = "https://api.openai.com/v1/chat/completions"
-MODEL = "gpt-4o-mini"
 
 
 async def chat(
@@ -27,6 +26,8 @@ async def chat(
 ) -> tuple[str, int | None, str]:
     """Call OpenAI Chat Completions.
 
+    The model is read from settings (LLM_MODEL env var, default gpt-4o-mini).
+
     Returns:
         (content, tokens_used, model_name)
 
@@ -34,12 +35,15 @@ async def chat(
         ValueError: OPENAI_API_KEY is not configured.
         RuntimeError: Non-200 response from OpenAI.
     """
-    api_key = get_settings().openai_api_key
+    settings = get_settings()
+    api_key = settings.openai_api_key
     if not api_key:
         raise ValueError(
             "OPENAI_API_KEY is not configured. "
             "Set it in your .env.dev file or as an environment variable."
         )
+
+    model = settings.llm_model
 
     async with httpx.AsyncClient(timeout=90.0) as client:
         resp = await client.post(
@@ -49,7 +53,7 @@ async def chat(
                 "Content-Type": "application/json",
             },
             json={
-                "model": MODEL,
+                "model": model,
                 "messages": messages,
                 "max_tokens": max_tokens,
                 "temperature": temperature,
@@ -66,6 +70,6 @@ async def chat(
     body: dict[str, Any] = resp.json()
     content: str = body["choices"][0]["message"]["content"]
     tokens_used: int | None = body.get("usage", {}).get("total_tokens")
-    model_used: str = body.get("model", MODEL)
+    model_used: str = body.get("model", model)
 
     return content, tokens_used, model_used

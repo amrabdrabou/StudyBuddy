@@ -50,35 +50,54 @@ export async function aiSummarize(
 
 export async function aiGenerateFlashcards(
   workspaceId: string,
-  opts: { summary: string; difficulty: Difficulty; deck_title?: string; count?: number }
+  opts: { summary?: string; document_ids?: string[]; difficulty: Difficulty; deck_title?: string; count?: number }
 ): Promise<GenerateFlashcardsResponse> {
   const res = await authFetch(`/workspaces/${workspaceId}/ai/generate-flashcards`, {
     method: "POST",
-    body: JSON.stringify(opts),
+    body: JSON.stringify({
+      summary: opts.summary ?? "",
+      document_ids: opts.document_ids ?? [],
+      difficulty: opts.difficulty,
+      deck_title: opts.deck_title,
+      count: opts.count,
+    }),
   });
   return res.json();
 }
 
 export async function aiGenerateQuiz(
   workspaceId: string,
-  opts: { summary: string; difficulty: Difficulty; quiz_title?: string; count?: number }
+  opts: { summary?: string; document_ids?: string[]; difficulty: Difficulty; quiz_title?: string; count?: number }
 ): Promise<GenerateQuizResponse> {
   const res = await authFetch(`/workspaces/${workspaceId}/ai/generate-quiz`, {
     method: "POST",
-    body: JSON.stringify(opts),
+    body: JSON.stringify({
+      summary: opts.summary ?? "",
+      document_ids: opts.document_ids ?? [],
+      difficulty: opts.difficulty,
+      quiz_title: opts.quiz_title,
+      count: opts.count,
+    }),
   });
   return res.json();
 }
 
 export async function aiGenerateRoadmap(
   workspaceId: string,
-  opts?: { document_ids?: string[]; count?: number }
+  opts?: {
+    document_ids?: string[];
+    summary_text?: string;
+    count?: number;
+    difficulty?: Difficulty;
+  }
 ): Promise<GenerateRoadmapResponse> {
   const res = await authFetch(`/workspaces/${workspaceId}/ai/generate-roadmap`, {
     method: "POST",
     body: JSON.stringify({
       document_ids: opts?.document_ids ?? [],
+      summary_text: opts?.summary_text ?? null,
       count: opts?.count ?? 8,
+      difficulty: opts?.difficulty ?? "normal",
     }),
   });
   return res.json();
@@ -98,6 +117,9 @@ export async function aiSuggestSession(
 export interface GenerateStudySessionRequest {
   summary?: string;
   goal_context?: string;
+  /** @deprecated use goal_ids */
+  goal_id?: string;
+  goal_ids?: string[];
   mode: "auto" | "manual";
   flashcard_difficulty?: Difficulty;
   flashcard_count?: number;

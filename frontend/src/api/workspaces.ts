@@ -8,8 +8,14 @@ export interface Workspace {
   subject_id: string;
   title: string;
   status: WorkspaceStatus;
+  progress_pct: number;
   created_at: string;
   updated_at: string;
+  document_count: number;
+  flashcard_deck_count: number;
+  quiz_set_count: number;
+  session_count: number;
+  note_count: number;
 }
 
 export async function getWorkspaces(params?: { subject_id?: string; status?: WorkspaceStatus }): Promise<Workspace[]> {

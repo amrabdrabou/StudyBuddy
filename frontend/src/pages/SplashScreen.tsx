@@ -59,7 +59,7 @@ const SplashScreen = () => (
             color: "#6b7280",
             marginTop: 8,
         }}>
-            Loading your workspace…
+            Loading to your dashboard . . .
         </p>
 
         <style>{`

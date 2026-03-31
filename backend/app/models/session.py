@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, SmallInteger, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, SmallInteger, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -25,6 +25,9 @@ SESSION_STATUSES = {"active", "paused", "completed", "abandoned"}
 
 class Session(Base):
     __tablename__ = "sessions"
+    __table_args__ = (
+        Index("ix_sessions_ws_user_started", "workspace_id", "user_id", "started_at"),
+    )
 
     workspace_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -1,0 +1,91 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: studybuddy-postgres-restore
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: studybuddy
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_restore_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d studybuddy" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: studybuddy-redis-restore
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_restore_data:/data
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    image: studybuddy-backend:latest
+    container_name: studybuddy-backend-restore
+    restart: unless-stopped
+    env_file:
+      - backend/.env.dev
+    environment:
+      ENVIRONMENT: dev
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/studybuddy
+      DEBUG: "true"
+      ALGORITHM: HS256
+      ALLOWED_ORIGINS: '["http://localhost:5173"]'
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+
+  worker:
+    image: studybuddy-worker:latest
+    container_name: studybuddy-worker-restore
+    restart: unless-stopped
+    env_file:
+      - backend/.env.dev
+    command: [ "python", "worker.py" ]
+    environment:
+      ENVIRONMENT: dev
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/studybuddy
+      DEBUG: "true"
+      ALGORITHM: HS256
+      ALLOWED_ORIGINS: '["http://localhost:5173"]'
+      REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    image: studybuddy-frontend:latest
+    container_name: studybuddy-frontend-restore
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000/api/v1
+      CHOKIDAR_USEPOLLING: "true"
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  postgres_restore_data:
+  redis_restore_data:

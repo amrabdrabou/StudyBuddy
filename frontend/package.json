@@ -15,6 +15,7 @@
     "test:e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@carbon/icons-react": "^11.77.0",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.69",
     "@tailwindcss/vite": "^4.2.1",

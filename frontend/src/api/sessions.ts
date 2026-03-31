@@ -17,6 +17,8 @@ export interface Session {
   micro_goal_ids: string[];
   flashcard_deck_id: string | null;
   quiz_set_id: string | null;
+  flashcard_reviews_count: number;
+  quiz_score_pct: number | null;
   created_at: string;
   updated_at: string;
 }

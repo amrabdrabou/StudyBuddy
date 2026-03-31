@@ -50,6 +50,10 @@ from app.models.quiz_attempt_answer import QuizAttemptAnswer  # noqa: F401
 # ── Layer 7: Notes & Dashboard ───────────────────────────────────────────────
 from app.models.note import Note  # noqa: F401
 
+# ── Layer 8: Progress Tracking ───────────────────────────────────────────────
+from app.models.progress_snapshot import ProgressSnapshot  # noqa: F401
+from app.models.progress_event import ProgressEvent  # noqa: F401
+
 __all__ = [
     "Permission", "Role", "RolePermission", "UserRole",
     "User", "Token",
@@ -61,4 +65,5 @@ __all__ = [
     "FlashcardDeck", "Flashcard", "FlashcardReview",
     "QuizSet", "QuizQuestion", "QuizOption", "QuizAttempt", "QuizAttemptAnswer",
     "Note",
+    "ProgressSnapshot", "ProgressEvent",
 ]

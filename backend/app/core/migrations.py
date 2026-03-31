@@ -1,59 +1,17 @@
 """
-Startup migrations for adding columns or indexes that can't be expressed
-via create_all alone (e.g. columns on already-existing tables).
-Each statement runs in its own transaction so one failure doesn't abort the rest.
+DEPRECATED — this module is no longer called at startup.
+
+Schema migrations are now managed by Alembic:
+  backend/alembic/versions/0001_baseline.py  — absorbs all changes that were here
+  backend/alembic/versions/0002_*            — CHECK constraints, indexes, JSONB
+
+Common commands (run from backend/):
+  alembic upgrade head          # apply all pending migrations
+  alembic current               # show current revision
+  alembic history               # list all revisions
+  alembic downgrade -1          # roll back one revision
+  alembic revision -m "msg"     # create a new empty migration
+  alembic revision --autogenerate -m "msg"  # auto-detect ORM changes
+  alembic stamp 0001            # mark an existing DB as being at the baseline
+                                # (use this when upgrading from the pre-Alembic version)
 """
-from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncEngine
-
-
-PRE_CREATE: list[str] = [
-    # Security: token_type distinguishes access vs. refresh tokens
-    "ALTER TABLE tokens ADD COLUMN IF NOT EXISTS token_type VARCHAR(10) NOT NULL DEFAULT 'access'",
-]
-
-POST_CREATE: list[str] = [
-    # Mission card fields on big_goals
-    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS cover_color VARCHAR(20) NOT NULL DEFAULT '#6366f1'",
-    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS icon VARCHAR(100)",
-    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS pinned BOOLEAN NOT NULL DEFAULT false",
-    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS archived BOOLEAN NOT NULL DEFAULT false",
-    "ALTER TABLE big_goals ADD COLUMN IF NOT EXISTS display_order INTEGER NOT NULL DEFAULT 0",
-    # Canvas editor flag on notes
-    "ALTER TABLE notes ADD COLUMN IF NOT EXISTS canvas_enabled BOOLEAN NOT NULL DEFAULT false",
-    # Study session links on sessions
-    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS flashcard_deck_id UUID REFERENCES flashcard_decks(id) ON DELETE SET NULL",
-    "ALTER TABLE sessions ADD COLUMN IF NOT EXISTS quiz_set_id UUID REFERENCES quiz_sets(id) ON DELETE SET NULL",
-    # Partial unique index: only one active version per (name, role) in prompts table
-    # Standard UNIQUE on (name, role, is_active) won't work because multiple inactive
-    # rows share is_active=false. A partial index is the correct constraint.
-    """
-    CREATE UNIQUE INDEX IF NOT EXISTS uq_prompt_active_name_role
-    ON prompts (name, role)
-    WHERE is_active = TRUE
-    """,
-]
-
-
-async def _run_batch(engine: AsyncEngine, statements: list[str], label: str) -> None:
-    """
-    Executes a list of raw SQL statements asynchronously.
-    Catches and logs exceptions individually, allowing the application
-    to continue starting up even if a minor statement fails.
-    """
-    for statement in statements:
-        try:
-            async with engine.begin() as conn:
-                await conn.execute(text(statement))
-        except Exception as exc:
-            print(f"[migration:{label}] warning — {type(exc).__name__}: {statement.strip()[:80]}")
-
-
-async def run_pre_migrations(engine: AsyncEngine) -> None:
-    """Execute SQL statements configured to run before table creation."""
-    await _run_batch(engine, PRE_CREATE, "pre")
-
-
-async def run_post_migrations(engine: AsyncEngine) -> None:
-    """Execute SQL statements configured to run after table creation."""
-    await _run_batch(engine, POST_CREATE, "post")

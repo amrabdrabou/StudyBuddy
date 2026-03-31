@@ -95,8 +95,8 @@ const HomePage: React.FC<HomePageProps> = ({ isLoggedIn, onGoToLogin, onGoToRegi
           <div className="flex flex-col sm:flex-row gap-4">
             <button onClick={onGoToRegister}
               className="group bg-indigo-600 hover:bg-indigo-500 text-white px-10 py-5 rounded-2xl
-                         font-bold text-lg shadow-lg shadow-indigo-900/40 transition-all
-                         flex items-center justify-center gap-3">
+                        font-bold text-lg shadow-lg shadow-indigo-900/40 transition-all
+                        flex items-center justify-center gap-3">
               Start Studying Free
               <svg className="w-5 h-5 group-hover:translate-x-0.5 transition-transform"
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -105,7 +105,7 @@ const HomePage: React.FC<HomePageProps> = ({ isLoggedIn, onGoToLogin, onGoToRegi
             </button>
             <button onClick={onGoToLogin}
               className="bg-white/10 hover:bg-white/20 text-white px-10 py-5 rounded-2xl
-                         font-bold text-lg border-2 border-white/20 hover:border-white/30 transition-all">
+                        font-bold text-lg border-2 border-white/20 hover:border-white/30 transition-all">
               See How It Works
             </button>
           </div>
@@ -430,7 +430,7 @@ const HomePage: React.FC<HomePageProps> = ({ isLoggedIn, onGoToLogin, onGoToRegi
           <div className="flex flex-col sm:flex-row gap-4">
             <button onClick={onGoToRegister}
               className="group bg-indigo-600 hover:bg-indigo-500 text-white px-12 py-5 rounded-2xl font-bold
-                         text-xl shadow-xl shadow-indigo-900/40 hover:scale-105 transition-all flex items-center gap-3">
+                        text-xl shadow-xl shadow-indigo-900/40 hover:scale-105 transition-all flex items-center gap-3">
               Start Studying Free
               <svg className="w-5 h-5 group-hover:translate-x-0.5 transition-transform"
                 fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -439,7 +439,7 @@ const HomePage: React.FC<HomePageProps> = ({ isLoggedIn, onGoToLogin, onGoToRegi
             </button>
             <button onClick={onGoToRegister}
               className="bg-white/10 hover:bg-white/20 text-white px-12 py-5 rounded-2xl
-                         font-bold text-xl border-2 border-white/20 hover:border-white/30 transition-all">
+                        font-bold text-xl border-2 border-white/20 hover:border-white/30 transition-all">
               Create Your First Workspace
             </button>
           </div>

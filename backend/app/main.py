@@ -1,6 +1,8 @@
 """FastAPI application entry point: registers routers, middleware, and startup hooks."""
+import asyncio
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,9 +15,21 @@ import app.models  # noqa: F401 — registers all ORM models before create_all
 from app.core.config import get_settings
 from app.core.db_setup import AsyncSessionLocal, Base, engine
 from app.core.limiter import limiter
-from app.core.migrations import run_pre_migrations, run_post_migrations
 from app.seeds.rbac_seed import seed_rbac
 from app.seeds.prompt_seed import seed_prompts
+
+# Alembic is invoked in a thread because alembic.command is synchronous
+# and uses asyncio.run() internally (via alembic/env.py).
+_ALEMBIC_INI = Path(__file__).parent.parent / "alembic.ini"
+
+
+def _run_alembic_upgrade() -> None:
+    from alembic import command
+    from alembic.config import Config
+    cfg = Config(str(_ALEMBIC_INI))
+    command.upgrade(cfg, "head")
+
+
 from app.api.v1.routers.auth.auth import router as auth_router
 from app.api.v1.routers.user import router as user_router
 from app.api.v1.routers.subjects import router as subjects_router
@@ -43,15 +57,23 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    await run_pre_migrations(engine)
+
+    # Step 1: create_all ensures tables exist for fresh installs.
+    # Alembic (step 2) only runs ALTER TABLE / index / constraint operations.
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await conn.execute(text("SELECT 1"))  # verify connectivity
-    await run_post_migrations(engine)
-    # Idempotent RBAC seed: creates default roles and permissions if absent.
+
+    # Step 2: apply versioned schema migrations via Alembic.
+    # Runs in a thread because alembic.command is synchronous.
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(None, _run_alembic_upgrade)
+
+    # Step 3: seed reference data (idempotent).
     async with AsyncSessionLocal() as db:
         await seed_rbac(db)
         await seed_prompts(db)
+
     logger.info("Database ready (env=%s)", settings.environment)
     yield
     await engine.dispose()

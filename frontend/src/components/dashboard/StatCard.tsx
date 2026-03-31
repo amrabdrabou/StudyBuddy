@@ -1,17 +1,22 @@
-export default function StatCard({ label, value, icon: _icon, accent, onClick }: {
+import { Card, CardContent } from "../ui/card";
+
+export default function StatCard({ label, value, accent, icon, onClick }: {
   label: string;
   value: string | number;
-  icon?: React.ReactNode;
   accent: string;
+  icon?: React.ReactNode;
   onClick?: () => void;
 }) {
   return (
-    <div
+    <Card
       onClick={onClick}
-      className={`p-5 bg-white/5 rounded-2xl border border-white/5 space-y-1 ${onClick ? "cursor-pointer hover:bg-white/10 transition-colors" : ""}`}
+      className={`text-center${onClick ? " cursor-pointer hover:bg-white/10 transition-colors" : ""}`}
     >
-      <p className="text-xs text-gray-500 uppercase tracking-wide">{label}</p>
-      <p className={`text-3xl font-bold ${accent}`}>{value}</p>
-    </div>
+      <CardContent className="p-5">
+        {icon && <div className="flex justify-center mb-2">{icon}</div>}
+        <p className={`text-3xl font-black ${accent}`}>{value}</p>
+        <p className="text-gray-500 text-xs mt-1">{label}</p>
+      </CardContent>
+    </Card>
   );
 }

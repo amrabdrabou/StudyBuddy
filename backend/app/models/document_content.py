@@ -6,6 +6,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, func
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.db_setup import Base
@@ -29,9 +30,9 @@ class DocumentContent(Base):
     # Full extracted text from the document (used as a fallback for search or large context AI)
     raw_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
-    # Per-page content stored as JSON string: [{"page": 1, "text": "..."}]
+    # Per-page content as JSONB: [{"page": 1, "text": "..."}]
     # Useful for rendering page-by-page views in the frontend without re-parsing.
-    pages_json: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    pages_json: Mapped[Optional[list]] = mapped_column(JSONB, nullable=True)
 
     # AI-generated executive summary of the whole document
     summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)

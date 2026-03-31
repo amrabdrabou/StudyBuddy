@@ -10,11 +10,14 @@ logger = logging.getLogger(__name__)
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.api.v1.dependencies import get_current_active_user
 from app.api.v1.deps import apply_updates, get_workspace
 from app.core.db_setup import get_db
 from app.models.micro_goal import MicroGoal
+from app.models.user import User
 from app.models.workspace import Workspace
 from app.schemas.micro_goal import MicroGoalCreate, MicroGoalResponse, MicroGoalUpdate
+from app.services import progress_service
 
 router = APIRouter(prefix="/workspaces/{workspace_id}/micro-goals", tags=["micro-goals"])
 
@@ -55,7 +58,7 @@ async def create_micro_goal(
     db: AsyncSession = Depends(get_db),
     _: Workspace = Depends(get_workspace),
 ):
-    mg = MicroGoal(workspace_id=workspace_id, **body.model_dump())
+    mg = MicroGoal(workspace_id=workspace_id, source="user", **body.model_dump())
     db.add(mg)
     await db.commit()
     await db.refresh(mg)
@@ -79,6 +82,7 @@ async def update_micro_goal(
     body: MicroGoalUpdate,
     db: AsyncSession = Depends(get_db),
     _: Workspace = Depends(get_workspace),
+    current_user: User = Depends(get_current_active_user),
 ):
     mg = await _get_micro_goal_or_404(micro_goal_id, workspace_id, db)
     updates = body.model_dump(exclude_unset=True)
@@ -87,13 +91,17 @@ async def update_micro_goal(
     await db.commit()
     await db.refresh(mg)
 
-    # Recalculate mission progress whenever a micro-goal's status changes
     if status_changed:
         try:
-            from app.services.system.progress_calculator import recalculate_mission_progress
-            await recalculate_mission_progress(workspace_id, db)
+            await progress_service.propagate_microgoal_progress(
+                mg.id, current_user.id, db, source_type="session", source_id=None
+            )
+            await progress_service.cascade_from_workspace(
+                workspace_id, current_user.id, db, source_type="session", source_id=None
+            )
+            await db.commit()
         except Exception:
-            logger.warning("Failed to recalculate mission progress for workspace %s", workspace_id)
+            logger.warning("Failed to cascade progress for workspace %s", workspace_id)
 
     return mg
 

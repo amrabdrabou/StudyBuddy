@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional  # noqa: F401
 
-from sqlalchemy import DateTime, ForeignKey, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,6 +30,9 @@ WORKSPACE_STATUSES = {"active", "paused", "completed", "canceled"}
 
 class Workspace(Base):
     __tablename__ = "workspaces"
+    __table_args__ = (
+        Index("ix_workspaces_user_status", "user_id", "status"),
+    )
 
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

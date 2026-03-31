@@ -96,3 +96,14 @@ export async function updateCard(
 export async function deleteCard(workspaceId: string, deckId: string, cardId: string): Promise<void> {
   await authFetch(`/workspaces/${workspaceId}/flashcard-decks/${deckId}/cards/${cardId}`, { method: "DELETE" });
 }
+
+// ── Reviews ───────────────────────────────────────────────────────────────────
+
+export async function submitReview(data: {
+  flashcard_id: string;
+  session_id?: string;
+  quality_rating: number;
+  next_review_at: string;
+}): Promise<void> {
+  await authFetch("/flashcard-reviews/", { method: "POST", body: JSON.stringify(data) });
+}

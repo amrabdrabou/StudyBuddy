@@ -14,7 +14,7 @@ import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import delete, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -178,8 +178,29 @@ async def ai_generate_flashcards(
     current_user: User = Depends(get_current_active_user),
     _: Workspace = Depends(get_workspace),
 ):
+    # Resolve content: use provided summary or load from documents
+    if body.summary.strip():
+        content_text = body.summary.strip()
+    else:
+        content_text = await _load_workspace_summaries(
+            workspace_id, db, document_ids=body.document_ids or None
+        )
+        if not content_text:
+            detail = (
+                "None of the selected documents have content. Summarize them first."
+                if body.document_ids
+                else "No ready documents with content found. Upload and summarize documents first."
+            )
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+    if len(content_text) < 50:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Content is too short. Please provide at least 50 characters.",
+        )
+
     try:
-        cards_data = await generate_flashcards(body.summary, body.difficulty, body.count, db=db, user_id=current_user.id)
+        cards_data = await generate_flashcards(content_text, body.difficulty, body.count, db=db, user_id=current_user.id)
     except Exception as exc:
         logger.error("AI flashcards failed workspace=%s user=%s: %s", workspace_id, current_user.id, exc)
         raise _ai_http_error(exc)
@@ -222,8 +243,29 @@ async def ai_generate_quiz(
     current_user: User = Depends(get_current_active_user),
     _: Workspace = Depends(get_workspace),
 ):
+    # Resolve content: use provided summary or load from documents
+    if body.summary.strip():
+        content_text = body.summary.strip()
+    else:
+        content_text = await _load_workspace_summaries(
+            workspace_id, db, document_ids=body.document_ids or None
+        )
+        if not content_text:
+            detail = (
+                "None of the selected documents have content. Summarize them first."
+                if body.document_ids
+                else "No ready documents with content found. Upload and summarize documents first."
+            )
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+    if len(content_text) < 50:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Content is too short. Please provide at least 50 characters.",
+        )
+
     try:
-        questions_data = await generate_quiz(body.summary, body.difficulty, body.count, db=db, user_id=current_user.id)
+        questions_data = await generate_quiz(content_text, body.difficulty, body.count, db=db, user_id=current_user.id)
     except Exception as exc:
         logger.error("AI quiz failed workspace=%s user=%s: %s", workspace_id, current_user.id, exc)
         raise _ai_http_error(exc)
@@ -289,20 +331,25 @@ async def ai_generate_roadmap(
     If body.document_ids is non-empty, only those documents are used;
     otherwise all ready documents in the workspace are included.
     """
-    combined_text = await _load_workspace_summaries(
-        workspace_id, db, document_ids=body.document_ids or None
-    )
-    if not combined_text:
-        detail = (
-            "None of the selected documents have content. Summarize them first."
-            if body.document_ids
-            else "No ready documents with content found. Upload and summarize documents first."
+    # Use raw summary_text when provided; otherwise load from documents.
+    if body.summary_text and body.summary_text.strip():
+        combined_text = body.summary_text.strip()
+    else:
+        combined_text = await _load_workspace_summaries(
+            workspace_id, db, document_ids=body.document_ids or None
         )
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+        if not combined_text:
+            detail = (
+                "None of the selected documents have content. Summarize them first."
+                if body.document_ids
+                else "No ready documents with content found. Upload and summarize documents first."
+            )
+            raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
 
     try:
         goals_data = await generate_roadmap(
-            combined_text, ws.title, count=body.count, db=db, user_id=current_user.id
+            combined_text, ws.title, count=body.count, difficulty=body.difficulty,
+            db=db, user_id=current_user.id
         )
     except Exception as exc:
         logger.error("AI roadmap failed workspace=%s user=%s: %s", workspace_id, current_user.id, exc)
@@ -314,24 +361,65 @@ async def ai_generate_roadmap(
             detail="AI returned no goals. Try summarizing your documents first.",
         )
 
-    # Override: delete all existing micro-goals for this workspace
-    await db.execute(delete(MicroGoal).where(MicroGoal.workspace_id == workspace_id))
+    # ── Smart upsert: preserves user/system goals and deduplicates by title ──
+    # Cap active (non-completed, non-skipped) AI goals to prevent overwhelm.
+    MAX_ACTIVE_AI_GOALS = 10
 
-    created: list[MicroGoal] = []
-    for i, g in enumerate(goals_data):
-        mg = MicroGoal(
-            workspace_id=workspace_id,
-            title=g["title"],
-            description=g.get("description"),
-            status="suggested",
-            order_index=i,
+    def _norm(t: str) -> str:
+        """Normalize a title for dedup comparison: lowercase + collapse whitespace."""
+        return " ".join(t.lower().split())
+
+    # Fetch only the AI-sourced goals that already exist for this workspace
+    existing_ai_result = await db.execute(
+        select(MicroGoal).where(
+            MicroGoal.workspace_id == workspace_id,
+            MicroGoal.source == "ai",
         )
-        db.add(mg)
-        created.append(mg)
+    )
+    # Index by normalized title so minor AI variation doesn't cause duplicates
+    existing_ai: dict[str, MicroGoal] = {
+        _norm(mg.title): mg for mg in existing_ai_result.scalars().all()
+    }
+
+    new_norm_titles = {_norm(g["title"]) for g in goals_data}
+
+    # Delete stale AI goals — titles the AI no longer returned — but only if the
+    # user hasn't acted on them yet (completed/in_progress goals are preserved).
+    for norm_title, mg in existing_ai.items():
+        if norm_title not in new_norm_titles and mg.status not in ("completed", "in_progress"):
+            await db.delete(mg)
+
+    # Count how many active AI goals already exist (these occupy cap slots).
+    active_statuses = {"suggested", "pending", "in_progress"}
+    active_existing = sum(
+        1 for norm_title, mg in existing_ai.items()
+        if norm_title in new_norm_titles and mg.status in active_statuses
+    )
+    slots_remaining = max(0, MAX_ACTIVE_AI_GOALS - active_existing)
+
+    # Upsert: update existing AI goals (keeps their status); create new ones within cap.
+    new_count = 0
+    for i, g in enumerate(goals_data):
+        norm = _norm(g["title"])
+        if norm in existing_ai:
+            # Refresh metadata only — status and progress are preserved
+            existing_ai[norm].description = g.get("description")
+            existing_ai[norm].order_index = i
+        elif new_count < slots_remaining:
+            db.add(MicroGoal(
+                workspace_id=workspace_id,
+                title=g["title"],          # store the canonical AI title as-is
+                description=g.get("description"),
+                status="suggested",
+                source="ai",
+                order_index=i,
+            ))
+            new_count += 1
 
     await db.commit()
-    logger.info("AI_ROADMAP workspace=%s goals_created=%d user=%s", workspace_id, len(created), current_user.id)
-    return GenerateRoadmapResponse(goals_created=len(created))
+    total = len([n for n in new_norm_titles if n in existing_ai]) + new_count
+    logger.info("AI_ROADMAP workspace=%s goals_upserted=%d user=%s", workspace_id, total, current_user.id)
+    return GenerateRoadmapResponse(goals_created=total)
 
 
 # ── Suggest Session ───────────────────────────────────────────────────────────
@@ -492,11 +580,10 @@ async def ai_generate_study_session(
     await db.refresh(deck)
     await db.refresh(quiz_set)
 
-    # ── Step 4: Sync micro-goals ───────────────────────────────────────────────
+    # ── Step 4: Link or create micro-goals ───────────────────────────────────
     from app.services.system.micro_goal_engine import generate_system_micro_goals
     from app.models.session import Session as SessionModel
-    created_goals = await generate_system_micro_goals(workspace_id, db)
-    goals_created = len(created_goals)
+    from app.models.session_micro_goal import SessionMicroGoal
 
     # ── Step 5: Create a linked Session record ────────────────────────────────
     session_record = SessionModel(
@@ -508,6 +595,29 @@ async def ai_generate_study_session(
         quiz_set_id=quiz_set.id,
     )
     db.add(session_record)
+    await db.flush()
+
+    # Resolve the effective set of goal IDs (goal_ids takes precedence over deprecated goal_id)
+    effective_goal_ids: list[uuid.UUID] = list(body.goal_ids) if body.goal_ids else (
+        [body.goal_id] if body.goal_id is not None else []
+    )
+
+    if effective_goal_ids:
+        # Session built from specific goals — link all of them directly
+        linked_count = 0
+        for gid in effective_goal_ids:
+            goal = await db.get(MicroGoal, gid)
+            if goal and goal.workspace_id == workspace_id:
+                db.add(SessionMicroGoal(session_id=session_record.id, micro_goal_id=goal.id))
+                if goal.status in ("suggested", "pending"):
+                    goal.status = "in_progress"
+                linked_count += 1
+        goals_created = linked_count
+    else:
+        # Session built from summary — let the system engine create structural goals
+        created_goals = await generate_system_micro_goals(workspace_id, db)
+        goals_created = len(created_goals)
+
     await db.commit()
     await db.refresh(session_record)
 

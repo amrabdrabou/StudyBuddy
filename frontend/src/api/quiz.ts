@@ -21,14 +21,17 @@ export interface QuizOption {
   order_index: number;
 }
 
+export type QuestionType = "multiple_choice" | "true_false" | "short_answer";
+export type QuestionDifficulty = "easy" | "medium" | "hard";
+
 export interface QuizQuestion {
   id: string;
   quiz_set_id: string;
   question_text: string;
-  question_type: string;
+  question_type: QuestionType;
   correct_answer: string | null;
   explanation: string | null;
-  difficulty: string;
+  difficulty: QuestionDifficulty;
   order_index: number;
   ai_generated: boolean;
   options: QuizOption[];

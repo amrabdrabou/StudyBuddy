@@ -36,8 +36,8 @@ class LLMLog(Base):
     # Version of the prompt template at call time
     prompt_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
-    # Full rendered messages array, JSON-serialized — enables replay debugging
-    full_prompt: Mapped[str] = mapped_column(Text, nullable=False)
+    # Full rendered messages array as JSONB — enables replay debugging and indexing
+    full_prompt: Mapped[list] = mapped_column(JSONB, nullable=False)
 
     # Sanitized input variables (values truncated to 500 chars) for observability
     input_variables: Mapped[dict | None] = mapped_column(JSONB, nullable=True)

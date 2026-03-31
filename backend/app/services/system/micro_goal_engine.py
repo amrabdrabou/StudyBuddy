@@ -32,17 +32,35 @@ _APPLY_KNOWLEDGE_TITLE = "Apply knowledge"
 async def generate_system_micro_goals(
     workspace_id: uuid.UUID,
     db: AsyncSession,
+    *,
+    commit: bool = True,
 ) -> list[MicroGoal]:
     """Create structured micro-goals for a workspace using system logic (not AI).
 
     Returns the list of newly created MicroGoal instances.
     Already-existing goals (by title) are skipped.
+
+    If the workspace already contains any custom (AI-generated) goals — i.e. goals
+    whose titles don't match the system prefixes — this function returns immediately
+    without modifying anything. This prevents the system engine from appending
+    duplicate structural goals on top of an AI roadmap the user explicitly generated.
     """
-    # ── Fetch existing goal titles to enforce idempotency ──────────────────────
+    # ── Fetch existing goals to enforce idempotency ────────────────────────────
     existing_result = await db.execute(
-        select(MicroGoal.title).where(MicroGoal.workspace_id == workspace_id)
+        select(MicroGoal.title, MicroGoal.source).where(MicroGoal.workspace_id == workspace_id)
     )
-    existing_titles: set[str] = {row[0] for row in existing_result.all()}
+    existing_rows = existing_result.all()
+    existing_titles: set[str] = {row[0] for row in existing_rows}
+
+    # ── Skip if workspace has any user- or AI-generated goals ─────────────────
+    # The system engine only runs when the workspace has no custom goals.
+    # source='system' goals are ours; source='ai'/'user' means the user has
+    # taken ownership of the learning path and we must not clobber it.
+    if any(row[1] != "system" for row in existing_rows):
+        logger.info(
+            "micro_goal_engine: skipping — workspace %s has user/AI goals", workspace_id
+        )
+        return []
 
     # ── Determine the next order_index ─────────────────────────────────────────
     order_result = await db.execute(
@@ -65,6 +83,7 @@ async def generate_system_micro_goals(
             title=title,
             description=description,
             status=status,
+            source="system",
             order_index=order,
         )
         db.add(mg)
@@ -117,9 +136,12 @@ async def generate_system_micro_goals(
     )
 
     if goals_created:
-        await db.commit()
-        for mg in goals_created:
-            await db.refresh(mg)
+        if commit:
+            await db.commit()
+            for mg in goals_created:
+                await db.refresh(mg)
+        else:
+            await db.flush()
         logger.info(
             "micro_goal_engine: created %d goals for workspace %s",
             len(goals_created), workspace_id,

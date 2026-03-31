@@ -5,6 +5,8 @@ import uuid
 from datetime import datetime
 from typing import Optional
 
+from typing import Any
+
 from pydantic import BaseModel, Field, field_validator
 
 AI_JOB_TYPES = {"summary", "micro_goals", "flashcards", "quiz", "timeline", "recommendations"}
@@ -29,7 +31,7 @@ class AIJobResponse(BaseModel):
     document_id: Optional[uuid.UUID]
     job_type: str
     status: str
-    result_json: Optional[str]
+    result_json: Optional[Any]  # JSONB — returned as dict/list, not a string
     error_message: Optional[str]
     created_at: datetime
     updated_at: datetime

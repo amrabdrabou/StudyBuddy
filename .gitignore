@@ -23,16 +23,15 @@ venv/
 env/
 .env/
 
-# Environment variable files
+# ── Environment variables ─────────────────────────────────────────────────────
 .env
-.env.dev
 .env.*
 !.env.example
 
 # ── Node / Frontend ───────────────────────────────────────────────────────────
 node_modules/
-dist/
-dist-ssr/
+frontend/dist/
+frontend/dist-ssr/
 *.local
 
 # ── Logs ─────────────────────────────────────────────────────────────────────
@@ -60,6 +59,21 @@ Thumbs.db
 *.sqlite3
 *.db
 
-# ── Uploads / media ──────────────────────────────────────────────────────────
+# ── Uploads & media ──────────────────────────────────────────────────────────
 uploads/
 media/
+
+# ── Tests & coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+playwright-report/
+test-results/
+
+# ── Docker ───────────────────────────────────────────────────────────────────
+# Certbot certs are generated on the server, never committed
+docker/nginx/certs/
+
+# ── Alembic ───────────────────────────────────────────────────────────────────
+# Auto-generated pycache inside alembic versions
+backend/alembic/versions/__pycache__/

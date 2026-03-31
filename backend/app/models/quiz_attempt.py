@@ -5,7 +5,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, List, Optional
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, func
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, Numeric, String, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -23,6 +23,9 @@ QUIZ_ATTEMPT_STATUSES = {"in_progress", "completed", "abandoned", "timed_out"}
 
 class QuizAttempt(Base):
     __tablename__ = "quiz_attempts"
+    __table_args__ = (
+        Index("ix_quiz_attempts_quiz_user_status", "quiz_set_id", "user_id", "status"),
+    )
 
     quiz_set_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),

@@ -40,11 +40,16 @@ class Settings(BaseSettings):
     # Bootstrap: comma-separated emails that receive the "developer" role on registration.
     # All others receive the "user" role.
     # Example: DEVELOPER_EMAILS=alice@example.com,bob@example.com
-    developer_emails: str = "abdrabou.amr@icloud.com"
+    developer_emails: str = ""
 
     # OpenAI — required for AI generation features (summarize, flashcards, quiz)
     # Set OPENAI_API_KEY in your .env.dev file. Never hardcode this value.
     openai_api_key: str = ""
+
+    # LLM model identifier sent to the OpenAI API.
+    # Override via LLM_MODEL env var to pin a specific version or switch models.
+    # Examples: gpt-4o-mini, gpt-4o, gpt-4-turbo
+    llm_model: str = "gpt-4o-mini"
 
     # Redis — required for background pipeline worker
     # Set REDIS_URL=redis://localhost:6379/0 in .env.dev
@@ -62,14 +67,23 @@ class Settings(BaseSettings):
     )
 
     @model_validator(mode="after")
-    def _enforce_secret_key(self) -> "Settings":
-        if self.environment != "dev" and self.secret_key == _INSECURE_KEY:
+    def _enforce_required(self) -> "Settings":
+        is_prod = self.environment != "dev"
+
+        if is_prod and self.secret_key == _INSECURE_KEY:
             raise ValueError(
                 "SECRET_KEY must be set to a strong random value in non-dev environments. "
                 "Generate one with: python -c \"import secrets; print(secrets.token_hex(32))\""
             )
         if len(self.secret_key) < 32:
             raise ValueError("SECRET_KEY must be at least 32 characters long.")
+
+        if not self.database_url:
+            raise ValueError("DATABASE_URL must be set.")
+
+        if is_prod and not self.openai_api_key:
+            raise ValueError("OPENAI_API_KEY must be set in non-dev environments.")
+
         return self
 
 

@@ -8,7 +8,7 @@ Pipeline order (per document):
   2. flashcards      — AI: generate flashcard deck from summary
   3. quiz            — AI: generate quiz set from summary
   4. micro_goals     — System: derive goals from workspace content
-  5. progress        — System: update BigGoal.progress_pct
+  5. progress        — System: update progress snapshots
 
 Workspace-only pipeline (no document):
   1. micro_goals
@@ -147,9 +147,8 @@ async def _task_flashcards(
 ) -> None:
     from app.models.document import Document
     from app.models.document_content import DocumentContent
-    from app.models.flashcard import Flashcard
-    from app.models.flashcard_deck import FlashcardDeck
     from app.services.ai_service import generate_flashcards
+    from app.services.study_assets import create_flashcard_deck
 
     run = await _claim_run(workspace_id, document_id, "flashcards", TRIGGERED_BY_DOCUMENT, db)
     if run is None:
@@ -173,26 +172,17 @@ async def _task_flashcards(
             await _complete_run(run, db, skipped=True, error="No text for flashcards")
             return
 
-        cards_data = await generate_flashcards(source_text, "medium", 10, db=db)
+        cards_data = await generate_flashcards(source_text, "normal", 10, db=db)
         if not cards_data:
             await _complete_run(run, db, skipped=True, error="AI returned no cards")
             return
 
-        deck = FlashcardDeck(
+        deck = await create_flashcard_deck(
             workspace_id=workspace_id,
             title=f"{doc.original_filename} — Flashcards",
+            cards_data=cards_data,
+            db=db,
         )
-        db.add(deck)
-        await db.flush()
-
-        for i, card in enumerate(cards_data):
-            db.add(Flashcard(
-                deck_id=deck.id,
-                front_content=card["front"],
-                back_content=card["back"],
-                hint=card.get("hint"),
-                order_index=i,
-            ))
 
         await db.commit()
         await _complete_run(run, db)
@@ -210,12 +200,8 @@ async def _task_quiz(
 ) -> None:
     from app.models.document import Document
     from app.models.document_content import DocumentContent
-    from app.models.quiz_option import QuizOption
-    from app.models.quiz_question import QuizQuestion
-    from app.models.quiz_set import QuizSet
-    from app.models.user import User
     from app.services.ai_service import generate_quiz
-    from sqlalchemy import select as sa_select
+    from app.services.study_assets import create_quiz_set
 
     run = await _claim_run(workspace_id, document_id, "quiz", TRIGGERED_BY_DOCUMENT, db)
     if run is None:
@@ -239,7 +225,7 @@ async def _task_quiz(
             await _complete_run(run, db, skipped=True, error="No text for quiz")
             return
 
-        questions_data = await generate_quiz(source_text, "medium", 5, db=db)
+        questions_data = await generate_quiz(source_text, "normal", 5, db=db)
         if not questions_data:
             await _complete_run(run, db, skipped=True, error="AI returned no questions")
             return
@@ -250,34 +236,13 @@ async def _task_quiz(
         ws = ws_result.scalar_one_or_none()
         owner_id = ws.user_id if ws else None
 
-        quiz_set = QuizSet(
+        quiz_set = await create_quiz_set(
             workspace_id=workspace_id,
             created_by_user_id=owner_id,
             title=f"{doc.original_filename} — Quiz",
+            questions_data=questions_data,
+            db=db,
         )
-        db.add(quiz_set)
-        await db.flush()
-
-        for q in questions_data:
-            question = QuizQuestion(
-                quiz_set_id=quiz_set.id,
-                question_text=q["question_text"],
-                question_type=q["question_type"],
-                correct_answer=q["correct_answer"],
-                explanation=q["explanation"],
-                difficulty=q["difficulty"],
-                order_index=q["order_index"],
-                ai_generated=True,
-            )
-            db.add(question)
-            await db.flush()
-            for opt in q["options"]:
-                db.add(QuizOption(
-                    question_id=question.id,
-                    option_text=opt["text"],
-                    is_correct=opt["is_correct"],
-                    order_index=opt["order_index"],
-                ))
 
         await db.commit()
         await _complete_run(run, db)
@@ -299,11 +264,24 @@ async def _task_micro_goals(workspace_id: uuid.UUID, db) -> None:
 
 
 async def _task_progress(workspace_id: uuid.UUID, db) -> None:
-    from app.services.system.progress_calculator import recalculate_mission_progress
+    from app.models.workspace import Workspace
+    from app.services.progress_service import cascade_from_workspace
 
     try:
-        await recalculate_mission_progress(workspace_id, db)
-        logger.info("pipeline: progress updated workspace=%s", workspace_id)
+        ws_result = await db.execute(select(Workspace).where(Workspace.id == workspace_id))
+        workspace = ws_result.scalar_one_or_none()
+        if workspace is None:
+            logger.warning("pipeline: progress skipped, workspace not found workspace=%s", workspace_id)
+            return
+
+        await cascade_from_workspace(
+            workspace_id,
+            workspace.user_id,
+            db,
+            source_type="workspace",
+            source_id=workspace_id,
+        )
+        logger.info("pipeline: progress snapshots updated workspace=%s", workspace_id)
     except Exception as exc:
         logger.exception("pipeline: progress failed workspace=%s", workspace_id)
 

@@ -76,7 +76,7 @@ class FlashcardResponse(BaseModel):
 
 class FlashcardReviewCreate(BaseModel):
     flashcard_id: uuid.UUID
-    session_id: uuid.UUID
+    session_id: Optional[uuid.UUID] = None
     quality_rating: int = Field(..., ge=0, le=5)
     next_review_at: datetime
 
@@ -84,7 +84,7 @@ class FlashcardReviewCreate(BaseModel):
 class FlashcardReviewResponse(BaseModel):
     id: uuid.UUID
     flashcard_id: uuid.UUID
-    session_id: uuid.UUID
+    session_id: Optional[uuid.UUID]
     quality_rating: int
     next_review_at: datetime
     total_reviews: int

@@ -15,8 +15,10 @@ from app.models.quiz_attempt_answer import QuizAttemptAnswer
 from app.models.quiz_option import QuizOption
 from app.models.quiz_question import QuizQuestion
 from app.models.quiz_set import QuizSet
+from app.models.session import Session
 from app.models.user import User
 from app.models.workspace import Workspace
+from app.services import progress_service
 from app.schemas.quiz import (
     QuizAttemptAnswerCreate, QuizAttemptAnswerResponse,
     QuizAttemptCreate, QuizAttemptResponse, QuizAttemptUpdate,
@@ -237,6 +239,30 @@ async def update_attempt(
     apply_updates(attempt, body.model_dump(exclude_unset=True))
     await db.commit()
     await db.refresh(attempt)
+
+    # Trigger progress cascade when attempt is completed (best-effort)
+    if attempt.status == "completed":
+        try:
+            # Find sessions in this workspace that use this quiz_set
+            sessions_result = await db.execute(
+                select(Session.id).where(
+                    Session.quiz_set_id == quiz_set_id,
+                    Session.workspace_id == workspace_id,
+                    Session.user_id == current_user.id,
+                )
+            )
+            for (sess_id,) in sessions_result.all():
+                await progress_service.update_session_progress(
+                    sess_id,
+                    current_user.id,
+                    db,
+                    source_type="quiz",
+                    source_id=attempt.id,
+                )
+            await db.commit()
+        except Exception:
+            pass
+
     return attempt
 
 
@@ -261,12 +287,41 @@ async def submit_answer(
     if attempt is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Attempt not found")
 
+    question_result = await db.execute(
+        select(QuizQuestion).where(
+            QuizQuestion.id == body.question_id,
+            QuizQuestion.quiz_set_id == quiz_set_id,
+        )
+    )
+    question = question_result.scalar_one_or_none()
+    if question is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="question_id does not belong to this quiz set",
+        )
+
+    existing_answer_result = await db.execute(
+        select(QuizAttemptAnswer.id).where(
+            QuizAttemptAnswer.attempt_id == attempt_id,
+            QuizAttemptAnswer.question_id == body.question_id,
+        )
+    )
+    if existing_answer_result.scalar_one_or_none() is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Question has already been answered for this attempt",
+        )
+
     # Auto-grade multiple choice
     is_correct = None
     if body.selected_option_id:
         opt = await db.get(QuizOption, body.selected_option_id)
-        if opt:
-            is_correct = opt.is_correct
+        if opt is None or opt.question_id != question.id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="selected_option_id does not belong to question_id",
+            )
+        is_correct = opt.is_correct
 
     answer = QuizAttemptAnswer(
         attempt_id=attempt_id,
@@ -278,4 +333,27 @@ async def submit_answer(
     db.add(answer)
     await db.commit()
     await db.refresh(answer)
+
+    # Trigger incremental progress update when a correct answer is submitted (best-effort)
+    if answer.is_correct:
+        try:
+            sessions_result = await db.execute(
+                select(Session.id).where(
+                    Session.quiz_set_id == quiz_set_id,
+                    Session.workspace_id == workspace_id,
+                    Session.user_id == current_user.id,
+                )
+            )
+            for (sess_id,) in sessions_result.all():
+                await progress_service.update_session_progress(
+                    sess_id,
+                    current_user.id,
+                    db,
+                    source_type="quiz",
+                    source_id=answer.id,
+                )
+            await db.commit()
+        except Exception:
+            pass
+
     return answer

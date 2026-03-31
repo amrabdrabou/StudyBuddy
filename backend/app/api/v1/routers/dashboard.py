@@ -17,6 +17,7 @@ from app.models.document import Document
 from app.models.flashcard_deck import FlashcardDeck
 from app.models.micro_goal import MicroGoal
 from app.models.note import Note
+from app.models.progress_snapshot import ProgressSnapshot
 from app.models.quiz_set import QuizSet
 from app.models.session import Session
 from app.models.subject import Subject
@@ -24,6 +25,13 @@ from app.models.user import User
 from app.models.workspace import Workspace
 
 router = APIRouter(prefix="/dashboard", tags=["dashboard"])
+
+
+class MissionProgress(BaseModel):
+    id: uuid.UUID
+    title: str
+    cover_color: str
+    progress_pct: int
 
 
 class RecentSession(BaseModel):
@@ -46,6 +54,7 @@ class DashboardStats(BaseModel):
     quiz_sets_count: int
     notes_count: int
     recent_sessions: List[RecentSession]
+    mission_progress: List[MissionProgress]
 
 
 @router.get("/", response_model=DashboardStats)
@@ -87,6 +96,37 @@ async def get_dashboard(
     )
     recent_sessions = recent.scalars().all()
 
+    # Active missions with snapshot-based progress
+    missions_result = await db.execute(
+        select(BigGoal).where(
+            BigGoal.user_id == uid,
+            BigGoal.status.in_(["active", "ready_to_complete"]),
+            BigGoal.archived.is_(False),
+        )
+    )
+    missions = missions_result.scalars().all()
+
+    mission_snaps: dict[uuid.UUID, float] = {}
+    if missions:
+        snap_rows = await db.execute(
+            select(ProgressSnapshot.entity_id, ProgressSnapshot.progress_pct).where(
+                ProgressSnapshot.user_id == uid,
+                ProgressSnapshot.entity_type == "mission",
+                ProgressSnapshot.entity_id.in_([m.id for m in missions]),
+            )
+        )
+        mission_snaps = {eid: float(pct) for eid, pct in snap_rows.all()}
+
+    mission_progress_list = [
+        MissionProgress(
+            id=m.id,
+            title=m.title,
+            cover_color=m.cover_color,
+            progress_pct=round(mission_snaps.get(m.id, 0)),
+        )
+        for m in missions
+    ]
+
     return DashboardStats(
         subjects_count=subjects_count,
         active_workspaces_count=active_workspaces,
@@ -97,4 +137,5 @@ async def get_dashboard(
         quiz_sets_count=quiz_count,
         notes_count=notes_count,
         recent_sessions=[RecentSession.model_validate(s) for s in recent_sessions],
+        mission_progress=mission_progress_list,
     )
