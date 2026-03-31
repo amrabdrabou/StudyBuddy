@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     upload_dir: str = "uploads"  # override with absolute path in production
 
     # Rate limiting (requests per window)
+    api_rate_limit: str = "120/minute"
+    auth_rate_limit: str = "20/minute"
     login_rate_limit: str = "5/minute"
     register_rate_limit: str = "3/minute"
     ai_event_rate_limit: str = "20/hour"
