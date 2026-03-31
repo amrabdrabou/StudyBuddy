@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import {
   getBigGoals, createBigGoal, updateBigGoal, deleteBigGoal,
-  type BigGoal, type BigGoalStatus,
+  type BigGoal,
 } from "../api/big_goals";
 import { getSubjects, type Subject } from "../api/subjects";
 import Modal from "../components/ui/Modal";
@@ -78,11 +78,6 @@ export default function GoalsPage() {
       toGoal(g);
     } catch (e: unknown) { setError(e instanceof Error ? e.message : "Failed"); }
     finally { setSaving(false); }
-  };
-
-  const handleEdit = async (goal: BigGoal) => {
-    try { await updateBigGoal(goal.id, { status: goal.status as BigGoalStatus }); await load(); }
-    catch { setError("Failed to update"); }
   };
 
   const handleDelete = async (goal: BigGoal) => {
