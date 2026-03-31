@@ -3,329 +3,505 @@ import { getDashboard, type RecentSession } from "../api/dashboard";
 import { getBigGoals, type BigGoal } from "../api/big_goals";
 import { getSubjects } from "../api/subjects";
 import { getMe, getToken, type UserResponse } from "../api/auth";
+import { CategorySection, type CardSize, type StudyCardData } from "../components/overview/OverviewStudyCard";
 import { SplineScene } from "../components/ui/splite";
 import { useNavStore } from "../store/navStore";
 
-const COLORS = ["#818cf8", "#a78bfa", "#c084fc", "#34d399", "#22d3ee"];
+
+const HERO_COLORS = ["#818cf8", "#a78bfa", "#c084fc", "#e879f9", "#f0abfc"];
 
 export default function OverviewSection() {
   const {
     toGoals, toGoal,
     toSubjectsView, toWorkspacesView, toDocumentsView,
     toSessionsView, toFlashcardsView, toQuizzesView, toNotesView,
+    toWorkspace, recentWorkspaces,
+    initForUser, removeStaleEntries,
   } = useNavStore();
 
-  const [stats, setStats]   = useState<import("../api/dashboard").DashboardStats | null>(null);
-  const [goals, setGoals]   = useState<BigGoal[]>([]);
-  const [user, setUser]     = useState<UserResponse | null>(null);
+  const [stats, setStats] = useState<import("../api/dashboard").DashboardStats | null>(null);
+  const [goals, setGoals] = useState<BigGoal[]>([]);
+  const [allGoalIds, setAllGoalIds] = useState<Set<string>>(new Set());
+  const [user,  setUser]  = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [now, setNow] = useState(new Date());
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
   useEffect(() => {
     const token = getToken();
     Promise.all([
-      getDashboard(),
-      getBigGoals(),
-      getSubjects(),
+      getDashboard(), getBigGoals(), getSubjects(),
       token ? getMe(token).catch(() => null) : Promise.resolve(null),
     ])
       .then(([dash, g, _s, me]) => {
-        setStats(dash); setGoals(g.slice(0, 3)); setUser(me);
+        setStats(dash);
+        const goalIds = new Set<string>(g.map((goal: BigGoal) => goal.id));
+        setAllGoalIds(goalIds);
+        setGoals(g.slice(0, 3));
+        setUser(me);
+
+        // Switch to per-user recent history and purge stale entries
+        if (me?.id) {
+          initForUser(me.id);
+          // workspaces are nested under subjects; collect all workspace IDs from goals' subjects
+          // We don't have workspace IDs here, so we only validate by goal existence for now
+          removeStaleEntries(goalIds, new Set()); // empty set = skip workspace-level check
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }, [initForUser, removeStaleEntries]);
 
-  const userName = user?.first_name || user?.username || "Scholar";
-  const greeting = (() => { const h = new Date().getHours(); return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening"; })();
-  const today = new Date().toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  const userName  = user?.first_name || user?.username || "Scholar";
+  const h         = now.getHours();
+  const greeting  = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+  const today     = now.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  const timeStr   = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  // Only use a cached workspace if its parent goal still exists on the backend
+  const continueWs = recentWorkspaces.find(ws => allGoalIds.has(ws.goal.id)) ?? null;
+  const lastSession = stats?.recent_sessions?.[0];
+  const lastLabel   = lastSession
+    ? new Date(lastSession.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })
+    : null;
 
   if (loading) {
     return (
       <div className="p-8 space-y-4">
-        {[380, 80, 280].map((h, i) => (
-          <div key={i} className="rounded-2xl animate-pulse" style={{ height: h, background: "rgba(255,255,255,0.04)" }} />
-        ))}
+        <div className="rounded-3xl animate-pulse" style={{ height: 480, background: "rgba(255,255,255,0.04)" }} />
+        <div className="space-y-8 mt-5">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="space-y-2">
+              <div className="rounded-xl animate-pulse" style={{ height: 40, width: 200, background: "rgba(255,255,255,0.04)", animationDelay: `${i * 0.1}s` }} />
+              <div className="rounded-2xl animate-pulse" style={{ height: 380, background: "rgba(255,255,255,0.04)", animationDelay: `${i * 0.1 + 0.05}s` }} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }
 
-  const steps = [
+  // ── Card data ──────────────────────────────────────────────────────────────
+
+  const missionsVal   = stats?.active_big_goals_count ?? 0;
+  const pendingTasks  = stats?.pending_micro_goals_count ?? 0;
+  const missionProgressList = stats?.mission_progress ?? [];
+  const avgMissionProgress  = missionProgressList.length > 0
+    ? Math.round(missionProgressList.reduce((s, m) => s + m.progress_pct, 0) / missionProgressList.length)
+    : null;
+
+  const strategyCards: StudyCardData[] = [
     {
-      step: "01", label: "Missions",   desc: "Your learning goals",
-      value: stats?.active_big_goals_count ?? 0, color: "#818cf8",
-      onNew: toGoals, onClick: toGoals,
-      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>,
+      id: "missions",
+      title: "Missions",
+      step: "01",
+      size: "hero" as CardSize,
+      rowSpan: 2,
+      color: "#818cf8",
+      value: missionsVal,
+      sub: missionsVal === 0
+        ? "Create your first mission"
+        : avgMissionProgress !== null
+          ? `${avgMissionProgress}% avg progress · ${pendingTasks > 0 ? `${pendingTasks} pending` : "all caught up ✓"}`
+          : pendingTasks > 0
+            ? `${pendingTasks} task${pendingTasks !== 1 ? "s" : ""} pending`
+            : "All caught up ✓",
+      desc: missionsVal === 0
+        ? "Set your first learning goal"
+        : `${missionsVal} active mission${missionsVal !== 1 ? "s" : ""}`,
+      onClick: toGoals,
+      onNew: toGoals,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      ),
     },
     {
-      step: "02", label: "Subjects",   desc: "Topics to master",
-      value: stats?.subjects_count ?? 0, color: "#a78bfa",
-      onNew: toSubjectsView, onClick: toSubjectsView,
-      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>,
+      id: "subjects",
+      title: "Subjects",
+      step: "02",
+      size: "default" as CardSize,
+      color: "#a78bfa",
+      value: stats?.subjects_count ?? 0,
+      sub: (stats?.subjects_count ?? 0) === 0 ? "None yet" : `${stats?.subjects_count} tracked`,
+      desc: "Topics to master",
+      onClick: toSubjectsView,
+      onNew: toSubjectsView,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+      ),
     },
     {
-      step: "03", label: "Workspaces", desc: "Study environments",
-      value: stats?.active_workspaces_count ?? 0, color: "#10B981",
-      onNew: toWorkspacesView, onClick: toWorkspacesView,
-      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>,
-    },
-    {
-      step: "04", label: "Documents",  desc: "Study materials",
-      value: stats?.documents_count ?? 0, color: "#22d3ee",
-      onNew: toDocumentsView, onClick: toDocumentsView,
-      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>,
-    },
-    {
-      step: "05", label: "Sessions",   desc: "Active study time",
-      value: stats?.recent_sessions?.length ?? 0, color: "#34d399",
-      onNew: toSessionsView, onClick: toSessionsView,
-      icon: <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>,
-    },
-    {
-      step: "06", label: "Flashcards", desc: "AI review decks",
-      value: stats?.flashcard_decks_count ?? 0, color: "#f59e0b",
-      onNew: toFlashcardsView, onClick: toFlashcardsView,
-      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>,
-    },
-    {
-      step: "07", label: "Quiz Sets",  desc: "Knowledge tests",
-      value: stats?.quiz_sets_count ?? 0, color: "#f97316",
-      onNew: toQuizzesView, onClick: toQuizzesView,
-      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>,
-    },
-    {
-      step: "08", label: "Notes",      desc: "Captured insights",
-      value: stats?.notes_count ?? 0, color: "#ec4899",
-      onNew: toNotesView, onClick: toNotesView,
-      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>,
+      id: "workspaces",
+      title: "Workspaces",
+      step: "03",
+      size: "compact" as CardSize,
+      color: "#c084fc",
+      value: stats?.active_workspaces_count ?? 0,
+      sub: (stats?.active_workspaces_count ?? 0) > 0 ? "Currently active" : "None active",
+      desc: "Study environments",
+      onClick: toWorkspacesView,
+      onNew: toWorkspacesView,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        </svg>
+      ),
     },
   ];
 
+  const resourceCards: StudyCardData[] = [
+    {
+      id: "documents",
+      title: "Documents",
+      step: "04",
+      size: "hero" as CardSize,
+      color: "#fb923c",
+      value: stats?.documents_count ?? 0,
+      sub: (stats?.documents_count ?? 0) > 0 ? "Ready for AI" : "Upload to start",
+      desc: "Uploaded materials",
+      onClick: toDocumentsView,
+      onNew: toDocumentsView,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+    },
+    {
+      id: "notes",
+      title: "Notes",
+      step: "05",
+      size: "compact" as CardSize,
+      color: "#f59e0b",
+      value: stats?.notes_count ?? 0,
+      sub: (stats?.notes_count ?? 0) > 0 ? `${stats?.notes_count} saved` : "Start writing",
+      desc: "Captured insights",
+      onClick: toNotesView,
+      onNew: toNotesView,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+        </svg>
+      ),
+    },
+  ];
+
+  const practiceCards: StudyCardData[] = [
+    {
+      id: "sessions",
+      title: "Sessions",
+      step: "06",
+      size: "hero" as CardSize,
+      rowSpan: 2,
+      color: "#34d399",
+      value: stats?.recent_sessions?.length ?? 0,
+      sub: lastLabel ? `Last · ${lastLabel}` : "No sessions yet",
+      desc: "Study time logged",
+      onClick: toSessionsView,
+      onNew: toSessionsView,
+      icon: (
+        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M8 5v14l11-7z" />
+        </svg>
+      ),
+    },
+    {
+      id: "flashcards",
+      title: "Flashcards",
+      step: "07",
+      size: "default" as CardSize,
+      color: "#2dd4bf",
+      value: stats?.flashcard_decks_count ?? 0,
+      sub: (stats?.flashcard_decks_count ?? 0) > 0 ? "Ready to review" : "Generate from docs",
+      desc: "AI-generated decks",
+      onClick: toFlashcardsView,
+      onNew: toFlashcardsView,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      ),
+    },
+    {
+      id: "quizsets",
+      title: "Quiz Sets",
+      step: "08",
+      size: "compact" as CardSize,
+      color: "#22d3ee",
+      value: stats?.quiz_sets_count ?? 0,
+      sub: (stats?.quiz_sets_count ?? 0) > 0 ? "Test yourself" : "Create a quiz",
+      desc: "Knowledge tests",
+      onClick: toQuizzesView,
+      onNew: toQuizzesView,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+      ),
+    },
+  ];
+
+  // ── Render ─────────────────────────────────────────────────────────────────
+
   return (
-    <div className="p-8 overflow-y-auto" style={{ fontFamily: "'Lexend', sans-serif" }}>
+    <div className="pb-28" style={{ fontFamily: "'Lexend', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&display=swap');
 
-      {/* ①  GREETING */}
-      <div className="flex justify-between items-end mb-6 flex-wrap gap-3">
-        <div>
-          <p className="text-xs font-medium mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>{today}</p>
-          <h2 className="text-3xl font-extrabold tracking-tight text-white">
-            {greeting}, <span style={{ color: "#818cf8" }}>{userName}</span>
-          </h2>
-        </div>
-        <button onClick={toSessionsView}
-          className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-white text-sm hover:opacity-90 active:scale-95 transition-all"
-          style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", boxShadow: "0 4px 20px rgba(79,70,229,0.35)" }}>
-          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
-          Start Daily Session
-        </button>
-      </div>
+        @keyframes heroReveal {
+          from { opacity: 0; transform: translateY(10px); }
+          to   { opacity: 1; transform: translateY(0);    }
+        }
+        @keyframes chipIn {
+          from { opacity: 0; transform: translateX(-8px); }
+          to   { opacity: 1; transform: translateX(0);    }
+        }
+        @keyframes catSlideUp {
+          from { opacity: 0; transform: translateY(24px); }
+          to   { opacity: 1; transform: translateY(0);    }
+        }
 
-      {/* ②  HERO — Robot + CTA */}
-      <div className="rounded-2xl mb-6 overflow-hidden relative bg-slate-900 border border-white/[0.06]" style={{ minHeight: 420 }}>
-        <div className="flex flex-col md:flex-row h-full" style={{ minHeight: 420 }}>
+        .hero-content { animation: heroReveal 0.7s cubic-bezier(0.16,1,0.3,1) 0.1s both; }
+        .chip-in      { animation: chipIn 0.5s cubic-bezier(0.16,1,0.3,1) both; }
+        .cat-section  { animation: catSlideUp 0.6s cubic-bezier(0.16,1,0.3,1) both; }
 
-          {/* Left: CTA + Recent Activity */}
-          <div className="px-10 py-10 md:w-[55%] flex flex-col justify-center gap-5">
-            {goals.length > 0 ? (
-              /* ── HAS GOALS: continue studying ── */
+      `}</style>
+
+      {/* ── Hero card ── */}
+      <div
+        className="w-full mb-8 relative"
+        style={{ minHeight: 520 }}
+      >
+
+        {/* Full-width content with robot floating on top */}
+        <div className="relative" style={{ minHeight: 520 }}>
+
+          {/* Content — full width, sits behind the robot */}
+          <div className="relative z-0 px-10 py-10 flex flex-col justify-center gap-5" style={{ minHeight: 520 }}>
+
+            {/* Greeting + clock */}
+            <div className="relative z-10 flex items-center justify-between flex-wrap gap-2 mb-2">
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2 text-emerald-400">
-                  Keep the momentum
-                </p>
-                <h2 className="text-3xl font-extrabold text-white leading-tight">
-                  Continue Your{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">
-                    Journey
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-70" style={{ background: "#34d399" }} />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#34d399" }} />
+                  </span>
+                  <p className="text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    {today}&nbsp;·&nbsp;<span style={{ letterSpacing: "0.05em" }}>{timeStr}</span>
+                  </p>
+                </div>
+                <h2 className="text-4xl font-black tracking-tight leading-tight">
+                  <span className="text-white">{greeting}, </span>
+                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-500 via-violet-400 to-fuchsia-400"
+                    style={{ filter: "drop-shadow(0 0 18px rgba(167,139,250,0.55))" }}>
+                    {userName}
                   </span>
                 </h2>
-                <p className="text-sm mt-2 leading-relaxed max-w-sm text-slate-400">
-                  {stats && stats.pending_micro_goals_count > 0
+              </div>
+            </div>
+
+            <div className="relative z-10">
+              <div className="inline-flex items-center gap-2 bg-indigo-500/10 px-3 py-1 rounded-full mb-4">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-indigo-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-500" />
+                </span>
+                <span className="text-xs font-semibold text-indigo-300">
+                  {goals.length > 0 ? "Keep the momentum" : "Where every journey begins"}
+                </span>
+              </div>
+              <h2 className="mt-4 max-w-4xl text-6xl md:text-7xl xl:text-[5.25rem] font-extrabold tracking-tighter text-white leading-[0.9]">
+                {goals.length > 0 ? (
+                  <>Continue Your{" "}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-indigo-500">Journey</span>
+                  </>
+                ) : (
+                  <>Define Your{" "}
+                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-indigo-500">Mission</span>
+                  </>
+                )}
+              </h2>
+              <p className="mt-6 max-w-2xl text-lg leading-relaxed text-gray-300">
+                {goals.length > 0
+                  ? stats && stats.pending_micro_goals_count > 0
                     ? `You have ${stats.pending_micro_goals_count} pending task${stats.pending_micro_goals_count !== 1 ? "s" : ""} — pick up where you left off.`
-                    : "You're making progress — keep the streak alive and reach your goals."}
-                </p>
-              </div>
-            ) : (
-              /* ── NO GOALS: motivate to start ── */
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-2 text-indigo-400">
-                  Where every journey begins
-                </p>
-                <h2 className="text-3xl font-extrabold text-white leading-tight">
-                  Define Your{" "}
-                  <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-violet-400">
-                    Mission
-                  </span>
-                </h2>
-                <p className="text-sm mt-2 leading-relaxed max-w-sm text-slate-400">
-                  Start with a Mission — your big learning goal. Everything else builds from here.
-                </p>
-              </div>
-            )}
+                    : "You're making progress — keep the streak alive and reach your goals."
+                  : "Start with a Mission — your big learning goal. Everything else builds from here."}
+              </p>
+            </div>
 
-            {/* Recent Activity — show if sessions exist AND has goals, else show example chips */}
-            {goals.length > 0 && stats && stats.recent_sessions.length > 0 ? (
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>
-                  Recent Activity
-                </p>
-                <div className="flex flex-col gap-2 relative">
-                  <div className="absolute left-3 top-2 bottom-2 w-px" style={{ background: "rgba(255,255,255,0.07)" }} />
-                  {stats.recent_sessions.slice(0, 3).map((s: RecentSession, i: number) => {
-                    const c = COLORS[i % COLORS.length];
-                    return (
-                      <div key={s.id} className="flex items-center gap-3 pl-8 relative">
-                        <div className="absolute left-0 w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0"
-                          style={{ background: `${c}18`, border: `1px solid ${c}35` }}>
-                          <div className="w-1.5 h-1.5 rounded-full" style={{ background: c }} />
-                        </div>
-                        <div className="flex-1 min-w-0 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            {/* Activity / goals list */}
+            <div className="relative z-10 max-w-sm">
+              {goals.length > 0 && stats && stats.recent_sessions.length > 0 ? (
+                <>
+                  <p className="text-[10px] font-bold uppercase tracking-widest mb-3"
+                    style={{ color: "rgba(255,255,255,0.3)" }}>Recent Activity</p>
+                  <div className="flex flex-col gap-2">
+                    {stats.recent_sessions.slice(0, 3).map((s: RecentSession, i: number) => {
+                      const c = HERO_COLORS[i % HERO_COLORS.length];
+                      return (
+                        <div key={s.id} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                          <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: c }} />
                           <p className="text-sm font-semibold text-white truncate">{s.title ?? "Study Session"}</p>
-                          <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          <p className="text-[10px] ml-auto flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)" }}>
                             {new Date(s.started_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })} · <span className="capitalize">{s.status}</span>
                           </p>
                         </div>
+                      );
+                    })}
+                  </div>
+                </>
+              ) : goals.length > 0 ? (
+                <div className="flex flex-col gap-1.5">
+                  {goals.slice(0, 3).map((g, i) => {
+                    const c = HERO_COLORS[i % HERO_COLORS.length];
+                    return (
+                      <div key={g.id}
+                        className="flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer"
+                        style={{ background: `${c}0e`, border: `1px solid ${c}25` }}
+                        onClick={() => toGoal(g)}
+                      >
+                        <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: c }} />
+                        <span className="text-sm font-medium text-white truncate">{g.title}</span>
+                        <span className="ml-auto text-[10px] font-bold flex-shrink-0" style={{ color: c }}>{g.progress_pct}%</span>
                       </div>
                     );
                   })}
                 </div>
-              </div>
-            ) : goals.length > 0 ? (
-              /* Has goals but no sessions yet */
-              <div className="flex flex-col gap-1.5">
-                {goals.slice(0, 3).map((g, i) => {
-                  const c = COLORS[i % COLORS.length];
-                  return (
-                    <div key={g.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl cursor-pointer"
-                      style={{ background: `${c}0e`, border: `1px solid ${c}25` }}
-                      onClick={() => toGoal(g)}>
-                      <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: c }} />
-                      <span className="text-sm font-medium text-white truncate">{g.title}</span>
-                      <span className="ml-auto text-[10px] font-bold flex-shrink-0" style={{ color: c }}>{g.progress_pct}%</span>
+              ) : (
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    { text: "Become an AI Engineer",        color: "#818cf8" },
+                    { text: "Pass the Linear Algebra exam", color: "#a78bfa" },
+                    { text: "Learn Python",                 color: "#c084fc" },
+                  ].map(ex => (
+                    <div key={ex.text} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                      style={{ background: `${ex.color}0e`, border: `1px solid ${ex.color}25` }}>
+                      <div className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: ex.color }} />
+                      <span className="text-sm font-medium text-white">{ex.text}</span>
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              /* No goals — show example chips */
-              <div className="flex flex-col gap-1.5">
-                {[
-                  { text: "Become an AI Engineer",        color: "#818cf8" },
-                  { text: "Pass the Linear Algebra exam", color: "#22d3ee" },
-                  { text: "Learn Python",                 color: "#34d399" },
-                ].map(ex => (
-                  <div key={ex.text} className="flex items-center gap-3 px-4 py-2.5 rounded-xl"
-                    style={{ background: `${ex.color}0e`, border: `1px solid ${ex.color}25` }}>
-                    <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: ex.color }} />
-                    <span className="text-sm font-medium text-white">{ex.text}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+                  ))}
+                </div>
+              )}
+            </div>
 
-            {goals.length > 0 ? (
-              <button onClick={() => toGoal(goals[0])}
-                className="self-start flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-colors"
-                style={{ background: "linear-gradient(135deg, #059669, #0891b2)" }}>
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M8 5v14l11-7z" />
-                </svg>
-                Launch Session
-              </button>
-            ) : (
-              <button onClick={toGoals}
-                className="self-start flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-500 transition-colors">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                </svg>
-                Create Mission
-              </button>
-            )}
+            <div className="relative z-10">
+              {continueWs ? (
+                <button
+                  onClick={() => toWorkspace(continueWs.goal, continueWs.subject, continueWs.workspace)}
+                  className="self-start flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"
+                  style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", boxShadow: "0 4px 20px rgba(79,70,229,0.4)" }}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  Continue Journey
+                </button>
+              ) : goals.length > 0 ? (
+                <button
+                  onClick={() => toGoal(goals[0])}
+                  className="self-start flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"
+                  style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)", boxShadow: "0 4px 20px rgba(79,70,229,0.4)" }}
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z" /></svg>
+                  Start Learning
+                </button>
+              ) : (
+                <button
+                  onClick={toGoals}
+                  className="self-start flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm text-white bg-indigo-600 hover:bg-indigo-500 transition-colors active:scale-95"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                  </svg>
+                  Create Mission
+                </button>
+              )}
+            </div>
           </div>
 
-          {/* Right: robot */}
-          <div className="flex-1 relative" style={{ minHeight: 320 }}>
-            <div className="absolute inset-y-0 left-0 w-24 z-10 pointer-events-none"
-              style={{ background: "linear-gradient(to right, #0f172a, transparent)" }} />
-            <SplineScene scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
-              className="w-full h-full absolute inset-0" />
+          {/* Robot — absolute on right, floats over content */}
+          <div className="absolute inset-y-0 right-0 z-10" style={{ width: "52%" }}>
+            <SplineScene
+              scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+              className="absolute inset-0 w-full h-full"
+            />
           </div>
+
         </div>
       </div>
 
-      {/* ③  WORKFLOW STEPS */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-24">
-        {steps.map(s => (
-          <div
-            key={s.step}
-            className="rounded-xl p-4 flex flex-col"
-            style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${s.color}18` }}
-          >
-            {/* Step badge + New button */}
-            <div className="flex items-center justify-between mb-3">
-              <span
-                className="text-[9px] font-black tracking-widest px-1.5 py-0.5 rounded-md"
-                style={{ color: s.color, background: `${s.color}15` }}
-              >
-                {s.step}
-              </span>
-              <button
-                onClick={s.onNew}
-                className="text-[10px] font-semibold px-2 py-0.5 rounded-md transition-opacity hover:opacity-70"
-                style={{ color: s.color, background: `${s.color}15` }}
-              >
-                + New
-              </button>
-            </div>
+      {/* ── Category sections ── */}
+      <div className="mx-auto px-8 pb-6" style={{ maxWidth: "89.6rem" }}>
+      <div className="space-y-6">
 
-            {/* Clickable body */}
-            <button onClick={s.onClick} className="text-left flex-1">
-              <div className="flex items-center gap-1.5 mb-2">
-                <span style={{ color: s.color }}>{s.icon}</span>
-                <p className="text-xs font-semibold text-white truncate">{s.label}</p>
-              </div>
-              <p className="text-2xl font-black leading-none mb-0.5" style={{ color: s.color }}>
-                {s.value}
-              </p>
-              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{s.desc}</p>
-            </button>
-          </div>
-        ))}
-      </div>
-
-      {/* ⑦  FLOATING AI SUGGESTION BAR */}
-      <div className="fixed bottom-6 right-6 left-6 lg:left-[calc(256px+2rem)] z-40">
-        <div className="px-5 py-3.5 rounded-2xl flex items-center justify-between"
-          style={{
-            background: "rgba(2,6,23,0.9)",
-            backdropFilter: "blur(20px)",
-            border: "1px solid rgba(99,102,241,0.25)",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
-          }}>
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-full flex items-center justify-center flex-shrink-0"
-              style={{ background: "linear-gradient(135deg, #4f46e5, #7c3aed)" }}>
-              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+        {/* Strategy — full width pipeline */}
+        <div className="cat-section" style={{ animationDelay: "0.05s" }}>
+          <CategorySection
+            label="Strategy"
+            tagline="Define goals, organise subjects and set up workspaces"
+            color="#818cf8"
+            gridCols="1fr 1fr"
+            cards={strategyCards}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75"
+                  d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9" />
               </svg>
+            }
+          />
+        </div>
+
+        {/* Thin divider */}
+        <div style={{ height: 1, background: "rgba(255,255,255,0.04)" }} />
+
+        {/* Resources + Practice — side by side */}
+        <div className="cat-section grid gap-8" style={{ animationDelay: "0.15s", gridTemplateColumns: "1fr 2fr" }}>
+          <CategorySection
+            label="Resources"
+            tagline="Documents and notes for AI"
+            color="#f59e0b"
+            gridCols="1fr"
+            cards={resourceCards}
+            icon={
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75"
+                  d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+              </svg>
+            }
+          />
+
+          {/* Vertical separator */}
+          <div className="flex gap-8">
+            <div style={{ width: 1, background: "rgba(255,255,255,0.04)", flexShrink: 0 }} />
+            <div className="flex-1">
+              <CategorySection
+                label="Practice"
+                tagline="Sessions, flashcards and quizzes"
+                color="#34d399"
+                gridCols="1fr 1fr"
+                cards={practiceCards}
+                icon={
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.75"
+                      d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                }
+              />
             </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: "#818cf8" }}>AI Suggestion</p>
-              <p className="text-sm font-medium text-white">
-                Upload your study materials — AI will{" "}
-                <span className="font-bold" style={{ color: "#a78bfa" }}>generate flashcards & quizzes</span> instantly.
-              </p>
-            </div>
-          </div>
-          <div className="flex gap-2 flex-shrink-0 ml-4">
-            <button onClick={toGoals}
-              className="px-4 py-2 rounded-lg text-xs font-bold transition-colors"
-              style={{ background: "rgba(99,102,241,0.15)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.3)" }}
-              onMouseEnter={e => (e.currentTarget.style.background = "rgba(99,102,241,0.28)")}
-              onMouseLeave={e => (e.currentTarget.style.background = "rgba(99,102,241,0.15)")}>
-              Upload Docs
-            </button>
           </div>
         </div>
       </div>
+      </div>{/* end max-w-5xl */}
     </div>
   );
 }
+
+
