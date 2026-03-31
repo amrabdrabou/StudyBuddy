@@ -7,6 +7,7 @@ services:
     env_file: backend/.env.production
     environment:
       REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /var/app/uploads
     expose:
       - "8000"
     volumes:
@@ -30,7 +31,10 @@ services:
     env_file: backend/.env.production
     environment:
       REDIS_URL: redis://redis:6379/0
+      UPLOAD_DIR: /var/app/uploads
     command: python worker.py
+    volumes:
+      - uploads:/var/app/uploads
     depends_on:
       backend:
         condition: service_healthy

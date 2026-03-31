@@ -1576,7 +1576,7 @@ function DocumentsTab({ workspaceId, subjectId }: { workspaceId: string; subject
           <label className={`text-sm px-3 py-1.5 rounded-xl cursor-pointer transition-colors ${uploading ? "bg-cyan-600/50 text-white/50" : "bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400"}`}>
             {uploading ? "Uploading…" : "+ Upload"}
             <input type="file" className="hidden" onChange={handleUpload} disabled={uploading}
-              accept=".pdf,.doc,.docx,.txt,.md,.pptx" />
+              accept=".pdf,.doc,.docx,.txt" />
           </label>
         </div>
 
@@ -1589,10 +1589,10 @@ function DocumentsTab({ workspaceId, subjectId }: { workspaceId: string; subject
             </div>
             <div className="text-center">
               <p className="text-white font-medium text-sm">{uploading ? "Uploading…" : "Upload a document"}</p>
-              <p className="text-xs text-gray-600 mt-0.5">PDF, Word, PowerPoint, or plain text</p>
+              <p className="text-xs text-gray-600 mt-0.5">PDF, Word, or plain text</p>
             </div>
             <input type="file" className="hidden" onChange={handleUpload} disabled={uploading}
-              accept=".pdf,.doc,.docx,.txt,.md,.pptx" />
+              accept=".pdf,.doc,.docx,.txt" />
           </label>
         ) : (
           <div className="space-y-2">
