@@ -1,169 +1,347 @@
-# StudyBuddy Backend
+# StudyBuddy
 
-FastAPI backend for StudyBuddy. Handles auth, AI generation, document processing, quizzes, flashcards, and study sessions.
+StudyBuddy is a full-stack study platform with AI-assisted workflows for documents, summaries, flashcards, quizzes, notes, chat, and study sessions.
 
-The database is on AWS RDS (PostgreSQL) — you do not run a database container locally or in production. Redis runs in Docker for the background job worker.
+This repository contains:
 
----
+- `backend/` - FastAPI API, database models, business logic, document processing, background jobs
+- `frontend/` - React + TypeScript single-page app
+- `docker/` - Dockerfiles and nginx production config
+- `docker-compose.dev.yml` - local development stack
+- `docker-compose.prod.yml` - production stack
 
 ## Stack
 
-- Python 3.13, FastAPI, SQLAlchemy 2 (async), asyncpg
-- PostgreSQL on AWS RDS
-- Redis + RQ for background jobs
-- Alembic for migrations
-- nginx + Certbot (Let's Encrypt) in production
-- Docker for both dev and production
+- Backend: Python 3.13, FastAPI, SQLAlchemy, Alembic
+- Frontend: React, TypeScript, Vite
+- Jobs: Redis + RQ worker
+- Database: PostgreSQL
+- Production proxy: nginx + Certbot
+- Runtime: Docker Compose
 
----
+## Architecture
 
-## Dev setup
+Development stack:
 
-Copy the env file and fill in your values:
+- `frontend` runs Vite on `http://localhost:5173`
+- `backend` runs FastAPI on `http://localhost:8000`
+- `worker` processes background jobs
+- `postgres` and `redis` run as local containers
+
+Production stack:
+
+- `nginx` terminates TLS and routes traffic
+- `frontend` serves the built SPA from its container
+- `backend` serves the API privately on port `8000`
+- `worker` processes background jobs
+- `redis` supports the queue
+- uploaded files are stored in the shared Docker volume mounted at `/var/app/uploads`
+
+## Repository Layout
+
+```text
+backend/
+  app/
+    api/
+    core/
+    models/
+    schemas/
+    services/
+    seeds/
+  alembic/
+  worker.py
+frontend/
+  src/
+docker/
+  Dockerfile.backend
+  Dockerfile.frontend
+  nginx/
+    prod.conf
+docker-compose.dev.yml
+docker-compose.prod.yml
+README.md
+```
+
+## Development
+
+### 1. Prerequisites
+
+- Docker Desktop or Docker Engine with Compose
+
+### 2. Create the dev env file
 
 ```bash
 cp backend/.env.example backend/.env.dev
 ```
 
-Minimum required fields in `backend/.env.dev`:
+Review at least these values in `backend/.env.dev`:
 
-```
-DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@your-rds-endpoint:5432/studybuddy
-SECRET_KEY=<run: python -c "import secrets; print(secrets.token_hex(32))">
-OPENAI_API_KEY=<your key>
+```env
+ENVIRONMENT=dev
+SECRET_KEY=<at least 32 chars>
+OPENAI_API_KEY=<your key if you want AI features>
 ```
 
-Start everything from the project root:
+Notes:
+
+- In Docker dev mode, `DATABASE_URL`, `REDIS_URL`, `ALLOWED_ORIGINS`, and `UPLOAD_DIR` are overridden by `docker-compose.dev.yml`
+- The dev stack uses the local `postgres` and `redis` containers automatically
+
+### 3. Start the dev stack
 
 ```bash
-docker compose up
+docker compose -f docker-compose.dev.yml up --build
 ```
 
-This starts the API on `http://localhost:8000`, the frontend on `http://localhost:5173`, the RQ worker, and Redis. Migrations and seed data run automatically on startup.
+Available services:
 
-API docs: `http://localhost:8000/docs` (dev only, disabled in production).
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+- API docs: `http://localhost:8000/docs`
+- Health check: `http://localhost:8000/health`
 
----
+### 4. Stop the dev stack
 
-## Production setup
+```bash
+docker compose -f docker-compose.dev.yml down
+```
 
-### 1. Prepare the server
+Remove volumes too:
 
-You need a VPS or EC2 instance with Docker and Docker Compose installed, and a domain pointed at its IP.
+```bash
+docker compose -f docker-compose.dev.yml down -v
+```
 
-### 2. Configure environment
+### Dev behavior
+
+- backend code is bind-mounted into the container
+- frontend code is bind-mounted into the container
+- FastAPI runs in reload mode
+- Vite runs in dev mode with hot reload
+- uploads are stored in the `backend_dev_uploads` volume
+- database data is stored in `postgres_dev_data`
+
+## Production
+
+### 1. Prerequisites
+
+- A Linux server with Docker and Docker Compose
+- A domain pointed to the server IP
+- Ports `80` and `443` open
+
+### 2. Create the production env file
 
 ```bash
 cp backend/.env.example backend/.env.production
 ```
 
-Fill in all `REPLACE_WITH_*` values. Key ones:
+Set production values in `backend/.env.production`.
 
-```
+Important variables:
+
+```env
 ENVIRONMENT=production
-DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@your-rds-endpoint:5432/studybuddy
+DEBUG=false
+DATABASE_URL=postgresql+asyncpg://USER:PASSWORD@HOST:5432/DBNAME
 SECRET_KEY=<strong random value>
-OPENAI_API_KEY=<your key>
-ALLOWED_ORIGINS=["https://yourdomain.com"]
+OPENAI_API_KEY=<required in production>
+ALLOWED_ORIGINS=["https://your-domain.com"]
+GOOGLE_REDIRECT_URI=https://your-domain.com/api/v1/auth/google/callback
 UPLOAD_DIR=/var/app/uploads
 ```
 
-### 3. Set your domain in the nginx config
+Notes:
 
-Edit `docker/nginx/prod.conf` and replace all three instances of `YOUR_DOMAIN` with your actual domain.
+- keep `UPLOAD_DIR=/var/app/uploads` in production because both `backend` and `worker` use that shared mounted path
+- `REDIS_URL` is overridden by `docker-compose.prod.yml` to `redis://redis:6379/0`
 
-### 4. Issue the SSL certificate (first time only)
+### 3. Configure nginx
 
-Run from the project root. nginx needs to be up before certbot can verify your domain:
+Update your real domain in [docker/nginx/prod.conf](/d:/StudyBuddy/docker/nginx/prod.conf).
+
+Make sure:
+
+- `server_name` matches your domain
+- certificate paths match your domain
+- HTTP redirects point to the correct host
+
+### 4. Build and start production
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+This starts:
+
+- `nginx`
+- `frontend`
+- `backend`
+- `worker`
+- `redis`
+
+### 5. Issue the TLS certificate
+
+For a first-time deploy, you may start nginx first:
 
 ```bash
 docker compose -f docker-compose.prod.yml up -d nginx
 ```
 
-Then issue the certificate:
+Then request the certificate:
 
 ```bash
-docker compose -f docker-compose.prod.yml run --rm certbot \
-  certonly --webroot -w /var/www/certbot \
-  -d yourdomain.com \
-  --email your@email.com \
-  --agree-tos --no-eff-email
+docker compose -f docker-compose.prod.yml run --rm certbot certonly --webroot -w /var/www/certbot -d your-domain.com -d www.your-domain.com --email you@example.com --agree-tos --no-eff-email
 ```
 
-### 5. Start everything
+Restart nginx after the certificate is created:
 
 ```bash
-docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml restart nginx
 ```
 
-Certbot will automatically renew the certificate every 12 hours if it is close to expiry.
+### 6. Update production
 
----
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
+```
 
-## Database
+### 7. Stop production
 
-The database is on AWS RDS. Point `DATABASE_URL` at the RDS endpoint in your env file. No database container is needed.
+```bash
+docker compose -f docker-compose.prod.yml down
+```
 
-Migrations run automatically on startup. To run manually:
+## Environment Files
+
+- `backend/.env.example` - template
+- `backend/.env.dev` - local development values
+- `backend/.env.production` - production values
+
+The backend loads `.env.{ENVIRONMENT}` through Pydantic settings.
+
+Common variables:
+
+- `ENVIRONMENT`
+- `DATABASE_URL`
+- `SECRET_KEY`
+- `OPENAI_API_KEY`
+- `ALLOWED_ORIGINS`
+- `REDIS_URL`
+- `UPLOAD_DIR`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_REDIRECT_URI`
+
+## Uploads
+
+Supported document types:
+
+- `.pdf`
+- `.doc`
+- `.docx`
+- `.txt`
+
+Limits:
+
+- max upload size is controlled by `UPLOAD_MAX_FILE_SIZE_MB`
+- nginx production proxy currently allows `20M` request bodies
+
+Storage locations:
+
+- development uploads: `/app/uploads` inside backend and worker containers
+- production uploads: `/var/app/uploads` inside backend and worker containers
+
+## Database and Migrations
+
+Backend startup applies schema setup automatically:
+
+- `Base.metadata.create_all(...)`
+- `alembic upgrade head`
+- seed data for RBAC and prompts
+
+Run migrations manually inside the backend container if needed:
 
 ```bash
 alembic upgrade head
 ```
 
-To generate a new migration after changing a model:
+Generate a migration:
 
 ```bash
-alembic revision --autogenerate -m "describe what changed"
+alembic revision --autogenerate -m "describe change"
 ```
 
----
+## Background Jobs
 
-## Background worker
+The worker entry point is [backend/worker.py](/d:/StudyBuddy/backend/worker.py).
 
-The AI document pipeline runs in a separate RQ worker. In both dev and production Docker Compose setups, the worker starts automatically as its own container alongside the API.
+It consumes Redis-backed RQ jobs used by the document and AI pipeline.
 
-To run manually outside Docker:
+In both dev and production, the worker is started as its own service by Docker Compose.
+
+## Common Commands
+
+Start dev:
 
 ```bash
-python worker.py
+docker compose -f docker-compose.dev.yml up --build
 ```
 
----
+Stop dev:
 
-## Environment variables
-
-The app loads `.env.{ENVIRONMENT}` based on the `ENVIRONMENT` shell variable. See `.env.example` for all available variables.
-
-Required everywhere:
-- `DATABASE_URL`
-- `SECRET_KEY` (min 32 chars)
-
-Required in production:
-- `OPENAI_API_KEY`
-- `ALLOWED_ORIGINS` — your actual frontend domain
-- `UPLOAD_DIR` — absolute path
-
----
-
-## Project structure
-
+```bash
+docker compose -f docker-compose.dev.yml down
 ```
-docker/
-  Dockerfile.backend
-  Dockerfile.frontend
-  nginx/
-    prod.conf           reverse proxy config (replace YOUR_DOMAIN before deploying)
-backend/
-  app/
-    api/v1/routers/     one file per feature (auth, quizzes, flashcards, etc.)
-    core/               config, DB setup, migrations
-    models/             SQLAlchemy ORM models
-    schemas/            Pydantic request/response schemas
-    services/           business logic, AI service, document processing
-    seeds/              startup data (roles, prompts)
-frontend/
-  src/                  React + TypeScript SPA
-  nginx.conf            nginx config used inside the frontend container
-docker-compose.yml           dev
-docker-compose.prod.yml      production
+
+Start prod:
+
+```bash
+docker compose -f docker-compose.prod.yml up -d --build
 ```
+
+Show production logs:
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f
+```
+
+Backend logs only:
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f backend
+```
+
+Worker logs only:
+
+```bash
+docker compose -f docker-compose.prod.yml logs -f worker
+```
+
+## Troubleshooting
+
+### File uploads fail in production
+
+Check:
+
+- `UPLOAD_DIR=/var/app/uploads` in production
+- both `backend` and `worker` mount the `uploads` volume
+- nginx `client_max_body_size` is large enough
+
+### CORS errors
+
+Check:
+
+- `ALLOWED_ORIGINS` contains the exact frontend origin
+- frontend API URL is correct for the environment
+
+### Backend starts but jobs do not run
+
+Check:
+
+- `worker` container is up
+- `redis` container is healthy
+- `REDIS_URL` points to `redis://redis:6379/0` in Docker
+
+### Docs unavailable in production
+
+This is expected. FastAPI docs are disabled outside `ENVIRONMENT=dev`.

@@ -76,3 +76,12 @@ docker/nginx/certs/
 # ── Alembic ───────────────────────────────────────────────────────────────────
 # Auto-generated pycache inside alembic versions
 backend/alembic/versions/__pycache__/
+
+# Markdown
+*.md
+!README.md
+ARCHITECTURE_AUDIT.md
+DOCUMENT_SUMMARIES_IMPROVEMENT_PLAN.md
+MICROGOALS_IMPROVEMENT_PLAN.md
+db.xlsx
+checklist.txt
